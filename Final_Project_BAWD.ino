@@ -96,8 +96,8 @@ const int ci_Line_Tracker_Cal_Measures = 20;
 const int ci_Line_Tracker_Tolerance = 169;   // May need to adjust this
 const int ci_Motor_Calibration_Cycles = 3;
 const int ci_Motor_Calibration_Time = 5000;
-const int minWall_distance = 6;//find intended distance - think about turn
-const int maxWall_distance = 10;//"
+const int minWall_distance = 4;//find intended distance - think about turn
+const int maxWall_distance = 7;//"
 const int wallTolerance = 1;//"
 
 //variables
@@ -738,27 +738,30 @@ void loop()
           /*if (!((rearWall_Distance <= maxWall_distance) && (rearWall_Distance >= minWall_distance) && (frontWall_Distance <= maxWall_distance) && (frontWall_Distance >= minWall_distance))) {
             servo_LeftMotor.writeMicroseconds(1400);
             servo_RightMotor.writeMicroseconds(1400);
-          }*/
+            }*/
           if ((rearWall_Distance <= maxWall_distance) && (rearWall_Distance >= minWall_distance) && (frontWall_Distance <= maxWall_distance) && (frontWall_Distance >= minWall_distance)) {
-            servo_LeftMotor.writeMicroseconds(1700);
-            servo_RightMotor.writeMicroseconds(1700);
+            servo_LeftMotor.writeMicroseconds(1800);
+            servo_RightMotor.writeMicroseconds(1800);//if perfect drive straight
           }
-          if (rearWall_Distance <= (frontWall_Distance - wallTolerance)) {
+          if ((rearWall_Distance <= minWall_distance) && (frontWall_Distance <= minWall_distance)) {
+            servo_LeftMotor.writeMicroseconds(1750);
+            servo_RightMotor.writeMicroseconds(1600);// if too close, turn away
+          }else if (rearWall_Distance <= (frontWall_Distance - wallTolerance)) {
+            servo_LeftMotor.writeMicroseconds(1500);
+            servo_RightMotor.writeMicroseconds(1750);//if turning towards turn away
+          }
+          if ((rearWall_Distance >= maxWall_distance) && (frontWall_Distance >= maxWall_distance)) {
             servo_LeftMotor.writeMicroseconds(1600);
-            servo_RightMotor.writeMicroseconds(1700);
+            servo_RightMotor.writeMicroseconds(1750);// if too far, turn closer
+          } else if (rearWall_Distance >= (frontWall_Distance + wallTolerance)) {
+            servo_LeftMotor.writeMicroseconds(1750);
+            servo_RightMotor.writeMicroseconds(1500);//if turning away turn towards.
           }
-          if (rearWall_Distance >= (frontWall_Distance + wallTolerance)) {
-            servo_LeftMotor.writeMicroseconds(1700);
-            servo_RightMotor.writeMicroseconds(1600);
-          }
-           if ((rearWall_Distance <= maxWall_distance) && (rearWall_Distance >= minWall_distance) && (frontWall_Distance <= maxWall_distance) && (frontWall_Distance >= minWall_distance)) {
-            servo_LeftMotor.writeMicroseconds(1700);
-            servo_RightMotor.writeMicroseconds(1700);
-          }
-                
 
-       
-          
+
+
+
+
           /*stop_Counter++;
             if (stop_Counter < 10000) {
             servo_ArmMotor.write(ci_Arm_Servo_Retracted);
