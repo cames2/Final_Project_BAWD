@@ -111,7 +111,7 @@ double rightP_factor = 0;
 double leftP_factor = 0;
 
 double angles[2] = {0};
-double angle_diff[3] = {0};
+double angle_diff[3] = {10, 10, 10};
 double total_diff = 0;
 
 unsigned long ul_3_Second_timer = 0;
@@ -228,7 +228,9 @@ void loop()
   rearWall_distance = Ping(ci_rearUltrasonic_Ping, ci_rearUltrasonic_Data);
   frontWall_distance = Ping(ci_frontUltrasonic_Ping, ci_frontUltrasonic_Data);
   faceWall_distance = Ping(ci_faceUltrasonic_Ping, ci_faceUltrasonic_Data);
-  if(faceWall_distance == 0) { faceWall_distance = 20; }
+  if (faceWall_distance == 0) {
+    faceWall_distance = 20;
+  }
   angle_error = frontWall_distance - rearWall_distance;
   front_error = frontWall_distance - wall_distance;
 
@@ -264,10 +266,10 @@ void loop()
         {
           // ---------------------------- WALL FOLLOWING with P CONTROLLER ----------------------------
 
-          Serial.print("Angle = ");
-          Serial.println(angle_error);
+          // Serial.print("Angle = ");
+          // Serial.println(angle_error);
           Serial.print("frontWall_distance = ");
-          Serial.println(frontWall_distance);
+          //     Serial.println(frontWall_distance);
 
           if (angle_error > 0) {     // Robot points away from wall
             leftP_factor += angle_error * 30.0;
@@ -302,7 +304,7 @@ void loop()
 
           if (faceWall_distance < 5)
           {
-            //ui_Robot_State_Index = 5;
+            ui_Robot_State_Index = 5;
           }
         }
 
@@ -446,25 +448,35 @@ void loop()
       {
         if (spinTester == 0) {
           servo_LeftMotor.writeMicroseconds(1600);
-          servo_RightMotor.writeMicroseconds(1400);
-          Serial.print("angle_error");
-          Serial.println(angle_error);
-          
+          servo_RightMotor.writeMicroseconds(1430);
+          Serial.print("angle_error = ");
+          Serial.print(angle_error);
+          total_diff = 0;
           angles[1] = angles[0];
           angles[0] = angle_error;
           angle_diff[2] = angle_diff[1];
           angle_diff[1] = angle_diff[0];
           angle_diff[0] = angles[1] - angles[0];
-          for(int i = 0; i < 3; i++) {
-            total_diff += angle_diff[i];
+          for (int i = 0; i < 3; i++) {
+            if (angle_diff[i] > 0) total_diff += angle_diff[i];
+            else total_diff -= angle_diff[i];
           }
+          Serial.print(", angle_diff[0] = ");
+          Serial.print(angle_diff[0]);
+          Serial.print(", angle_diff[1] = ");
+          Serial.print(angle_diff[1]);
+          Serial.print(", angle_diff[2] = ");
+          Serial.print(angle_diff[2]);
+          Serial.print(", total_diff = ");
+          
+          Serial.println(total_diff);
         }
-        Serial.print("total_diff");
-        Serial.println(total_diff);
-        if (total_diff > -2 && total_diff < 0) {
-          spinTester = 1;
-          servo_LeftMotor.writeMicroseconds(1500);
-          servo_RightMotor.writeMicroseconds(1500);
+
+        if (total_diff < 2 && angle_error < 0) {
+          //spinTester = 1;
+          //servo_LeftMotor.writeMicroseconds(1500);
+          //servo_RightMotor.writeMicroseconds(1500);
+          ui_Robot_State_Index = 1;
         }
         /*if (spinTester == 1) {
           if (angle_error > 0) {
@@ -473,7 +485,7 @@ void loop()
 
             //ui_Robot_State_Index = 1;
           }
-        }*/
+          }*/
         break;
       }
   }
