@@ -1,3 +1,4 @@
+
 /*
   MSE 2202 Final Project - TEAM B.A.W.D.
   Language: Arduino
@@ -35,24 +36,22 @@ I2CEncoder encoder_LeftMotor;
 boolean bt_Motors_Enabled = true;
 
 //port pin constants
-const int ci_frontUltrasonic_Ping = 11;   //input plug
-const int ci_frontUltrasonic_Data = 12;   //output plug
-const int ci_rearUltrasonic_Ping = 2;   //input plug
-const int ci_rearUltrasonic_Data = 3;   //output plug
-const int ci_Charlieplex_LED1 = 4;
-const int ci_Charlieplex_LED2 = 5;
+const int ci_frontUltrasonic_Ping = A0;   //input plug
+const int ci_frontUltrasonic_Data = A1;   //output plug
+const int ci_rearUltrasonic_Ping = A2;   //input plug
+const int ci_rearUltrasonic_Data = A3;   //output plug
+const int ci_faceUltrasonic_Ping = 2;   //input plug
+const int ci_faceUltrasonic_Data = 3;   //output plug
+const int ci_Charlieplex_LED1 = 4;//for IR now
+const int ci_Charlieplex_LED2 = 5;//for IR now
 const int ci_Charlieplex_LED3 = 6;
 const int ci_Charlieplex_LED4 = 7;
 const int ci_Mode_Button = 7;
 const int ci_Right_Motor = 8;
 const int ci_Left_Motor = 9;
 const int ci_Arm_Motor = 10;
-const int ci_Grip_Motor = 13;//switched from11 testing Ultras
+const int ci_Grip_Motor = 11;//12 will be last IR
 const int ci_Motor_Enable_Switch; //= 12; SWITCHED SO WE CAN USE ULTRASONIC//wire removed
-const int ci_Right_Line_Tracker = A0;
-const int ci_Middle_Line_Tracker = A1;
-const int ci_Left_Line_Tracker = A2;
-const int ci_Light_Sensor = A3;
 const int ci_I2C_SDA = A4;         // I2C data = white
 const int ci_I2C_SCL = A5;         // I2C clock = yellow
 
@@ -84,8 +83,9 @@ const int ci_Line_Tracker_Cal_Measures = 20;
 const int ci_Line_Tracker_Tolerance = 169;   // May need to adjust this
 const int ci_Motor_Calibration_Cycles = 3;
 const int ci_Motor_Calibration_Time = 5000;
-const double wall_distance = 3;     // Centimeters
+const double wall_distance = 5;     // Centimeters
 const double wall_tolerance = 0.5;   // Centimeters
+int spinTester = 0;
 
 //variables
 byte b_LowByte;
@@ -104,6 +104,7 @@ long l_Left_Motor_Position;
 long l_Right_Motor_Position;
 double rearWall_distance;
 double frontWall_distance;
+double faceWall_distance;
 double angle_error;
 double front_error;
 double rightP_factor = 0;
@@ -158,6 +159,8 @@ void setup() {
   pinMode(ci_frontUltrasonic_Data, INPUT);
   pinMode(ci_rearUltrasonic_Ping, OUTPUT);
   pinMode(ci_rearUltrasonic_Data, INPUT);
+  pinMode(ci_faceUltrasonic_Ping, OUTPUT);
+  pinMode(ci_faceUltrasonic_Data, INPUT);
 
   // set up drive motors
   pinMode(ci_Right_Motor, OUTPUT);
@@ -217,6 +220,13 @@ void loop()
     bt_Do_Once = LOW;
   }
 
+  //ping values every loop through
+  rearWall_distance = Ping(ci_rearUltrasonic_Ping, ci_rearUltrasonic_Data);
+  frontWall_distance = Ping(ci_frontUltrasonic_Ping, ci_frontUltrasonic_Data);
+  faceWall_distance = Ping(ci_faceUltrasonic_Ping, ci_faceUltrasonic_Data);
+  angle_error = frontWall_distance - rearWall_distance;
+  front_error = frontWall_distance - wall_distance;
+
   // check if drive motors should be powered
   bt_Motors_Enabled = digitalRead(ci_Motor_Enable_Switch);
 
@@ -231,12 +241,12 @@ void loop()
     case 0:    //Robot stopped
       {
         Ping(ci_frontUltrasonic_Ping, ci_frontUltrasonic_Data);
-        servo_ArmMotor.write(ci_Arm_Servo_Retracted);
-        servo_GripMotor.write(ci_Grip_Motor_Closed);
+        // servo_ArmMotor.write(ci_Arm_Servo_Retracted);
+        // servo_GripMotor.write(ci_Grip_Motor_Closed);
         encoder_LeftMotor.zero();
         encoder_RightMotor.zero();
         ui_Mode_Indicator_Index = 0;
-        servo_GripMotor.write(ci_Grip_Motor_Open);
+        // servo_GripMotor.write(ci_Grip_Motor_Open);
 
         //servo_LeftMotor.writeMicroseconds(1700);
         //servo_RightMotor.writeMicroseconds(1600);
@@ -249,48 +259,50 @@ void loop()
         {
           // ---------------------------- WALL FOLLOWING with P CONTROLLER ----------------------------
 
-          rearWall_distance = Ping(ci_rearUltrasonic_Ping, ci_rearUltrasonic_Data);
-          frontWall_distance = Ping(ci_frontUltrasonic_Ping, ci_frontUltrasonic_Data);
-          angle_error = frontWall_distance - rearWall_distance;
-          front_error = frontWall_distance - wall_distance;
+
+          //servo_LeftMotor.writeMicroseconds(1800);
+          //servo_RightMotor.writeMicroseconds(1800);
 
           Serial.print("Angle = ");
           Serial.println(angle_error);
           Serial.print("Front = ");
           Serial.println(front_error);
 
-          /*if (angle_error > wall_tolerance) {     // Robot points away from wall
-            leftP_factor += (angle_error - wall_tolerance) * 10.0;
+          if (angle_error > 0) {     // Robot points away from wall
+            leftP_factor += angle_error * 30.0;
           }
 
-          if (angle_error < - wall_tolerance) {   // Robot points towards wall
-            rightP_factor += (angle_error + wall_tolerance) * 10.0;
+          if (angle_error < 0) {   // Robot points towards wall
+            rightP_factor -= angle_error * 30.0;
           }
 
-          if (front_error > wall_tolerance) {     // Front of robot is too far from wall
-            leftP_factor += (front_error - wall_tolerance) * 10.0;
+          if (front_error > 0) {     // Front of robot is too far from wall
+            leftP_factor += front_error * 30.0;
           }
 
-          if (front_error < - wall_tolerance) {   // Front of robot is too close to wall
-            rightP_factor += (front_error + wall_tolerance) * 10.0;
+          if (front_error < 0) {   // Front of robot is too close to wall
+            rightP_factor -= front_error * 40.0;
           }
 
-          servo_LeftMotor.writeMicroseconds(1700 - leftP_factor);
-          servo_RightMotor.writeMicroseconds(1700 - rightP_factor);
+          servo_LeftMotor.writeMicroseconds(1650 - leftP_factor);
+          servo_RightMotor.writeMicroseconds(1650 - rightP_factor);
 
           Serial.println(leftP_factor);
           Serial.println(rightP_factor);
 
           leftP_factor = 0;
-          rightP_factor = 0;*/
+          rightP_factor = 0;
 
           // -----------------------------------------------------------------------------------------
 
-          /*Serial.print("  front Distance = ");
-            Serial.print(frontWall_Distance);
-            Serial.print("     ");*/
+          //Serial.print("  front Distance = ");
+          //Serial.print(frontWall_distance);
+          //Serial.print("     ");
 
-
+          if (faceWall_distance < 5)
+          {
+            ui_Robot_State_Index = 5;
+          }
         }
 
         /*#ifdef DEBUG_ENCODERS
@@ -304,15 +316,16 @@ void loop()
           #endif*/
 
         // set motor speeds
-        ui_Left_Motor_Speed = constrain(ui_Motors_Speed + ui_Left_Motor_Offset, 1600, 2100);
-        ui_Right_Motor_Speed = constrain(ui_Motors_Speed + ui_Right_Motor_Offset, 1600, 2100);
-        ui_Left_Motor_Reverse = constrain(ui_Motors_Reverse - ui_Left_Motor_Offset, 900, 1500);
-        ui_Right_Motor_Reverse = constrain(ui_Motors_Reverse - ui_Right_Motor_Offset, 900, 1500);
-
+        /*  ui_Left_Motor_Speed = constrain(ui_Motors_Speed + ui_Left_Motor_Offset, 1600, 2100);
+          ui_Right_Motor_Speed = constrain(ui_Motors_Speed + ui_Right_Motor_Offset, 1600, 2100);
+          ui_Left_Motor_Reverse = constrain(ui_Motors_Reverse - ui_Left_Motor_Offset, 900, 1500);
+          ui_Right_Motor_Reverse = constrain(ui_Motors_Reverse - ui_Right_Motor_Offset, 900, 1500);
+        */
         break;
       }
 
-    case 2:    //Calibrate motor straightness after 3 seconds.
+
+    case 3:    //Calibrate motor straightness after 3 seconds.
       {
 
         if (bt_3_S_Time_Up)
@@ -367,6 +380,85 @@ void loop()
           Serial.println(encoder_RightMotor.getRawPosition());
 #endif
           ui_Mode_Indicator_Index = 4;
+        }
+        break;
+      }
+    case 4:    //Calibrate motor straightness after 3 seconds.
+      {
+
+        if (bt_3_S_Time_Up)
+        {
+          if (!bt_Cal_Initialized)
+          {
+            bt_Cal_Initialized = true;
+            encoder_LeftMotor.zero();
+            encoder_RightMotor.zero();
+            ul_Calibration_Time = millis();
+            servo_LeftMotor.writeMicroseconds(ui_Motors_Speed);
+            servo_RightMotor.writeMicroseconds(ui_Motors_Speed);
+          }
+          else if ((millis() - ul_Calibration_Time) > ci_Motor_Calibration_Time)
+          {
+            servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
+            servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
+            l_Left_Motor_Position = encoder_LeftMotor.getRawPosition();
+            l_Right_Motor_Position = encoder_RightMotor.getRawPosition();
+            if (l_Left_Motor_Position > l_Right_Motor_Position)
+            {
+              // May have to update this if different calibration time is used
+              ui_Right_Motor_Offset = 0;
+              ui_Left_Motor_Offset = (l_Left_Motor_Position - l_Right_Motor_Position) / 4;
+            }
+            else
+            {
+              // May have to update this if different calibration time is used
+              ui_Right_Motor_Offset = (l_Right_Motor_Position - l_Left_Motor_Position) / 4;
+              ui_Left_Motor_Offset = 0;
+            }
+
+#ifdef DEBUG_MOTOR_CALIBRATION
+            Serial.print("Motor Offsets: Left = ");
+            Serial.print(ui_Left_Motor_Offset);
+            Serial.print(", Right = ");
+            Serial.println(ui_Right_Motor_Offset);
+#endif
+            EEPROM.write(ci_Right_Motor_Offset_Address_L, lowByte(ui_Right_Motor_Offset));
+            EEPROM.write(ci_Right_Motor_Offset_Address_H, highByte(ui_Right_Motor_Offset));
+            EEPROM.write(ci_Left_Motor_Offset_Address_L, lowByte(ui_Left_Motor_Offset));
+            EEPROM.write(ci_Left_Motor_Offset_Address_H, highByte(ui_Left_Motor_Offset));
+
+            ui_Robot_State_Index = 0;    // go back to Mode 0
+          }
+#ifdef DEBUG_MOTOR_CALIBRATION
+          Serial.print("Encoders L: ");
+          Serial.print(encoder_LeftMotor.getRawPosition());
+          Serial.print(", R: ");
+          Serial.println(encoder_RightMotor.getRawPosition());
+#endif
+          ui_Mode_Indicator_Index = 4;
+        }
+        break;
+
+      }
+
+    case 5: //turn function
+      {
+        if (spinTester == 0) {
+          servo_LeftMotor.writeMicroseconds(1600);
+          servo_RightMotor.writeMicroseconds(1400);
+        }
+        if (angle_error < 0) {
+          spinTester = 1;
+          servo_LeftMotor.writeMicroseconds(1500);
+          servo_RightMotor.writeMicroseconds(1500);
+        }
+        if (spinTester == 1) {
+          if (angle_error > 0) {
+            servo_LeftMotor.writeMicroseconds(1400);
+            servo_RightMotor.writeMicroseconds(1400);
+
+            //ui_Robot_State_Index = 1;
+          }
         }
         break;
       }
