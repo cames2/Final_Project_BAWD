@@ -36,6 +36,8 @@ I2CEncoder encoder_LeftMotor;
 boolean bt_Motors_Enabled = true;
 
 //port pin constants
+//const int ci_microswitchTesseract = ?;   //mircoswitch for tesseract arm, NEED TO PICK PIN
+//const int ci_microswitchPyramid = ?;   //mircoswitch for pyramid, NEED TO PICK PIN
 const int ci_frontUltrasonic_Ping = A0;   //input plug
 const int ci_frontUltrasonic_Data = A1;   //output plug
 const int ci_rearUltrasonic_Ping = A2;   //input plug
@@ -157,7 +159,11 @@ void setup() {
 
   CharliePlexM::setBtn(ci_Charlieplex_LED1, ci_Charlieplex_LED2,
                        ci_Charlieplex_LED3, ci_Charlieplex_LED4, ci_Mode_Button);
-
+  
+  //set up mircoswitchs, NEED TO ASSIGN PINS STILL
+  pinMode(ci_microswitchTesseract, INPUT_PULLUP);   
+  pinMode(ci_microswitchPyramid, INPUT_PULLUP);
+  
   // set up ultrasonic
   pinMode(ci_frontUltrasonic_Ping, OUTPUT);
   pinMode(ci_frontUltrasonic_Data, INPUT);
@@ -505,6 +511,87 @@ void loop()
   }
 }
 
+ // -----------------------------------------------------------------------------------------
+// --------------------------------------Pyramid Decoding------------------------------------
+/*
+// Serial.print(digitalRead(ci_Light_Sensor));
+if (digitalRead(ci_Left_Light_Sensor)==0) //if left ir sensor sees the light it should turn left until the left doesn't see it anymore and then forward towards it until the middle sensor sees the pyramid
+{
+  //***need turning and driving part above here****
+ 
+  if(digitalRead(ci_Middle_Light_Sensor) == 0) {
+    //for AE pyramid because A is (01000001) and has 5 zeros in a row, so when we detect 5 1's in a row we know its the correct pyramid
+    if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
+       zeroCounter++;
+    if (analogRead(A3)==0)
+       zeroCounter=0;
+    if (zeroCounter== 5)
+       correctPyramid= true;
+    }
+}
+
+if (digitalRead(ci_Right_Light_Sensor)==0) //if left ir sensor sees the light it should turn left until the left doesn't see it anymore and then forward towards it until the middle sensor sees the pyramid
+{
+  //***need turning and driving part above here***
+  
+  if(digitalRead(ci_Middle_Light_Sensor) == 0) {
+      //for AE pyramid because A is (01000001) and has 5 zeros in a row, so when we detect 5 1's in a row we know its the correct pyramid
+    if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
+       zeroCounter++;
+    if (analogRead(A3)==0)
+       zeroCounter=0;
+    if (zeroCounter== 5)
+      correctPyramid = true;
+  }
+}
+
+if(digitalRead(ci_Middle_Light_Sensor) == 0) {    // Check if IR sensor sees light (1 =  no light, 0 = light)
+                                                  // if middle sensor sees the light goes right into decoding mode
+
+{
+//for AE pyramid because A is (01000001) and has 5 zeros in a row, so when we detect 5 1's in a row we know its the correct pyramid
+if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
+  zeroCounter++;
+if (analogRead(A3)==0)
+  zeroCounter=0;
+if (zeroCounter== 5)
+  return true;
+
+
+//******************************IO pyramid decode****************************
+// same above code but swithc if statements, and then depending on the switch it would go to either one
+
+//for IO pyramid because O is (01001111) and has 4 ones in a row, so when we detect 4 zeroes in a row we know its the correct pyramid
+if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
+  zeroCounter=0;
+if (analogRead(A3)==0)
+  zeroCounter++;
+if (zeroCounter== 4)
+  correctPyramid= true;
+ */
+//still need to figure out way for it regonize if it's the INCORRECT pyramid  
+
+// ----------------------------------------------------------------------------------------
+// -----------------------LOCATING PYRAMID DIRECTLY IN FRONT ------------------------------
+
+// if correct pyramid will turn until middle sensors see the light and the drive forward until mircoswitch is activiated on ziptie
+/*
+if (correctPyramid==true)
+{
+  if(digitalRead(ci_Middle_Light_Sensor) == 1) //turns right when middle sensor doesn't see the light 
+  {
+    servo_LeftMotor.writeMicroseconds(1600);
+    servo_RightMotor.writeMicroseconds(1430);
+  }
+  //once middle sensor sees the light it will drive straight
+  servo_LeftMotor.writeMicroseconds(1600);
+  servo_RightMotor.writeMicroseconds(1600);
+  //need mircoswitch coding
+
+}
+*/
+ // ---------------------------------------------------------------------------------------- 
+  
 // set mode indicator LED state
 void Indicator()
 {
