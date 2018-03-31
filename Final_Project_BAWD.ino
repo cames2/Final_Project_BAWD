@@ -152,6 +152,8 @@ boolean bt_Cal_Initialized = false;
 int stop_Counter = 0;
 int run_State = 1;
 int yes = 0;
+//bool pyramidSwitch;
+//int pressSwitch;
 
 void setup() {
   Wire.begin();        // Wire library required for I2CEncoder library
@@ -586,9 +588,26 @@ if (correctPyramid==true)
   //once middle sensor sees the light it will drive straight
   servo_LeftMotor.writeMicroseconds(1600);
   servo_RightMotor.writeMicroseconds(1600);
-  //need mircoswitch coding
+  
+  delay(10); //need this delay before it reads it, because due to the PULLUP function it reads 0 right away and then goes to 1
+  pressSwitch = digitalRead(ci_microswitchTesseract);
+  Serial.println (pressSwitch, DEC);
 
-}
+  if(pressSwitch == 0) //reads 1 when not pressed and 0 when pressed
+  {
+     Serial.println("Switch Pressed!"); //this means pyramid is right in front of the robot and can go into Tesseract Placement Mode
+     pyramidSwitch= true;
+     
+     //makes the robot stop as soon as pyramid is right in front
+     servo_LeftMotor.writeMicroseconds(1500);
+     servo_RightMotor.writeMicroseconds(1500);
+   //delay(1000); can use to be able to read it slower
+ }
+ 
+ if(pyramidSwitch==true) //Tesseract Placement Mode
+ {
+ 
+ }
 */
  // ---------------------------------------------------------------------------------------- 
   
