@@ -554,3 +554,94 @@ double Ping(unsigned int Input, unsigned int Output)
   return ((ul_Echo_Time / 30.0));
 }
 
+ // -----------------------------------------------------------------------------------------
+// --------------------------------------Pyramid Decoding------------------------------------
+/*
+// Serial.print(digitalRead(ci_Light_Sensor));
+if (digitalRead(ci_Left_Light_Sensor)==0) //if left ir sensor sees the light it should turn left until the left doesn't see it anymore and then forward towards it until the middle sensor sees the pyramid
+{
+  //***need turning and driving part above here****
+ 
+  if(digitalRead(ci_Middle_Light_Sensor) == 0) {
+    //for AE pyramid because A is (01000001) and has 5 zeros in a row, so when we detect 5 1's in a row we know its the correct pyramid
+    if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
+       zeroCounter++;
+    if (analogRead(A3)==0)
+       zeroCounter=0;
+    if (zeroCounter== 5)
+       correctPyramid= true;
+    }
+}
+if (digitalRead(ci_Right_Light_Sensor)==0) //if left ir sensor sees the light it should turn left until the left doesn't see it anymore and then forward towards it until the middle sensor sees the pyramid
+{
+  //***need turning and driving part above here***
+  
+  if(digitalRead(ci_Middle_Light_Sensor) == 0) {
+      //for AE pyramid because A is (01000001) and has 5 zeros in a row, so when we detect 5 1's in a row we know its the correct pyramid
+    if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
+       zeroCounter++;
+    if (analogRead(A3)==0)
+       zeroCounter=0;
+    if (zeroCounter== 5)
+      correctPyramid = true;
+  }
+}
+if(digitalRead(ci_Middle_Light_Sensor) == 0) {    // Check if IR sensor sees light (1 =  no light, 0 = light)
+                                                  // if middle sensor sees the light goes right into decoding mode
+{
+//for AE pyramid because A is (01000001) and has 5 zeros in a row, so when we detect 5 1's in a row we know its the correct pyramid
+if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
+  zeroCounter++;
+if (analogRead(A3)==0)
+  zeroCounter=0;
+if (zeroCounter== 5)
+  return true;
+//******************************IO pyramid decode****************************
+// same above code but swithc if statements, and then depending on the switch it would go to either one
+//for IO pyramid because O is (01001111) and has 4 ones in a row, so when we detect 4 zeroes in a row we know its the correct pyramid
+if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
+  zeroCounter=0;
+if (analogRead(A3)==0)
+  zeroCounter++;
+if (zeroCounter== 4)
+  correctPyramid= true;
+ */
+//still need to figure out way for it regonize if it's the INCORRECT pyramid  
+
+// ----------------------------------------------------------------------------------------
+// -----------------------LOCATING PYRAMID DIRECTLY IN FRONT ------------------------------
+
+// if correct pyramid will turn until middle sensors see the light and the drive forward until mircoswitch is activiated on ziptie
+/*
+if (correctPyramid==true)
+{
+  if(digitalRead(ci_Middle_Light_Sensor) == 1) //turns right when middle sensor doesn't see the light 
+  {
+    servo_LeftMotor.writeMicroseconds(1600);
+    servo_RightMotor.writeMicroseconds(1430);
+  }
+  //once middle sensor sees the light it will drive straight
+  servo_LeftMotor.writeMicroseconds(1600);
+  servo_RightMotor.writeMicroseconds(1600);
+  
+  delay(10); //need this delay before it reads it, because due to the PULLUP function it reads 0 right away and then goes to 1
+  pressSwitch = digitalRead(ci_microswitchTesseract);
+  Serial.println (pressSwitch, DEC);
+  if(pressSwitch == 0) //reads 1 when not pressed and 0 when pressed
+  {
+     Serial.println("Switch Pressed!"); //this means pyramid is right in front of the robot and can go into Tesseract Placement Mode
+     pyramidSwitch= true;
+     
+     //makes the robot stop as soon as pyramid is right in front
+     servo_LeftMotor.writeMicroseconds(1500);
+     servo_RightMotor.writeMicroseconds(1500);
+   //delay(1000); can use to be able to read it slower
+ }
+ 
+ if(pyramidSwitch==true) //Tesseract Placement Mode
+ {
+ 
+ }
+*/
+ // ---------------------------------------------------------------------------------------- 
+
