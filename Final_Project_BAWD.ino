@@ -1,4 +1,6 @@
 
+
+
 /*
   MSE 2202 Final Project - TEAM B.A.W.D.
   Language: Arduino
@@ -73,10 +75,10 @@ const int ci_Right_Motor_Offset_Address_H = 15;
 //speeds
 const int ci_Left_Motor_Stop = 1500;        // 200 for brake mode; 1500 for stop
 const int ci_Right_Motor_Stop = 1500;
-const int ci_Grip_Motor_Open = 140;         // Experiment to determine appropriate value
-const int ci_Grip_Motor_Closed = 0;        //  "
-const int ci_Arm_Servo_Retracted = 0;      //  "
-const int ci_Arm_Servo_Extended = 40;      //  "
+const int ci_Grip_Motor_Open = 100;         // Experiment to determine appropriate value
+const int ci_Grip_Motor_Closed = 10;        //  "
+const int ci_Arm_Servo_Up = 58;      //  "
+const int ci_Arm_Servo_Down = 5;      //  "
 const int ci_Display_Time = 500;
 const int ci_Line_Tracker_Calibration_Interval = 100;
 const int ci_Line_Tracker_Cal_Measures = 20;
@@ -147,9 +149,7 @@ boolean bt_3_S_Time_Up = false;
 boolean bt_Do_Once = false;
 boolean bt_Cal_Initialized = false;
 
-int stop_Counter = 0;
-int run_State = 1;
-int yes = 0;
+int counter = 0;
 
 void setup() {
   Wire.begin();        // Wire library required for I2CEncoder library
@@ -239,24 +239,23 @@ void loop()
 
   // modes
   // 0 = default after power up/reset
-  // 1 = Press mode button once to enter. Run robot.
-  // 2 = Press mode button twice to enter. Calibrate line tracker light level.
-  // 3 = Press mode button three times to enter. Calibrate line tracker dark level.
-  // 4 = Press mode button four times to enter. Calibrate motor speeds to drive straight.
+  // 1 = Run robot.
+  // 2 = Grabbing pyramid & Lifting pyramid
+  // 3 =
+  // 4 =
+  // 5 = Calibrate motor speeds to drive straight.
+  // 6 = Wall Turn function
   switch (ui_Robot_State_Index)
   {
     case 0:    //Robot stopped
       {
         Ping(ci_frontUltrasonic_Ping, ci_frontUltrasonic_Data);
-        // servo_ArmMotor.write(ci_Arm_Servo_Retracted);
-        // servo_GripMotor.write(ci_Grip_Motor_Closed);
+        servo_ArmMotor.write(ci_Arm_Servo_Up);
         encoder_LeftMotor.zero();
         encoder_RightMotor.zero();
         ui_Mode_Indicator_Index = 0;
-        // servo_GripMotor.write(ci_Grip_Motor_Open);
-
-        //servo_LeftMotor.writeMicroseconds(1700);
-        //servo_RightMotor.writeMicroseconds(1600);
+        servo_GripMotor.write(ci_Grip_Motor_Open);
+        
         break;
       }
 
@@ -272,19 +271,19 @@ void loop()
           //     Serial.println(frontWall_distance);
 
           if (angle_error > 0) {     // Robot points away from wall
-            leftP_factor += angle_error * 30.0;
+            leftP_factor += angle_error * 40.0;
           }
 
           if (angle_error < 0) {   // Robot points towards wall
-            rightP_factor -= angle_error * 30.0;
+            rightP_factor -= angle_error * 40.0;
           }
 
           if (front_error > 0) {     // Front of robot is too far from wall
-            leftP_factor += front_error * 30.0;
+            leftP_factor += front_error * 40.0;
           }
 
           if (front_error < 0) {   // Front of robot is too close to wall
-            rightP_factor -= front_error * 40.0;
+            rightP_factor -= front_error * 50.0;
           }
 
           servo_LeftMotor.writeMicroseconds(1650 - leftP_factor);
@@ -302,9 +301,9 @@ void loop()
           //Serial.print(frontWall_distance);
           //Serial.print("     ");
 
-          if (faceWall_distance < 5)
+          if (faceWall_distance < 12)
           {
-            ui_Robot_State_Index = 5;
+            ui_Robot_State_Index = 6;
           }
         }
 
@@ -327,14 +326,95 @@ void loop()
         break;
       }
 
+    case 2://when pyramid is in right spot
+      {
+        if (bt_3_S_Time_Up)
+        {
+          if (faceWall_distance < 7) {
+            counter++;
+          }
 
-    case 3:    //Calibrate motor straightness after 3 seconds.
+          if (counter < 10) {
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 25);
+          }
+
+          else if (counter < 25) {
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 18);
+          }
+
+          else if (counter < 45) {
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 12);
+          }
+
+          else if (counter < 60) {
+            servo_GripMotor.write(ci_Grip_Motor_Closed);
+          }
+          else if (counter < 80) {
+            servo_ArmMotor.write(ci_Arm_Servo_Up - 35);
+          }
+          else if (counter < 100) {
+            servo_ArmMotor.write(ci_Arm_Servo_Up - 25);
+          }
+          else if (counter > 100) {
+            servo_ArmMotor.write(ci_Arm_Servo_Up - 12);
+            counter = 1000;
+            ui_Robot_State_Index = 3;
+          }
+        }
+        Serial.print("faceWall_distance = ");
+        Serial.println(faceWall_distance);
+        break;
+      }
+    case 3:
+      {
+        if (bt_3_S_Time_Up)
+        {
+          counter--;
+
+          if (counter > 870) {
+            servo_LeftMotor.writeMicroseconds(1400);
+            servo_RightMotor.writeMicroseconds(1400);
+          }
+          else if (counter > 800) {
+            servo_LeftMotor.writeMicroseconds(1500);
+            servo_RightMotor.writeMicroseconds(1500);
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 35);
+          }
+          else if (counter > 790) {
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 30);
+          }
+          else if (counter > 780) {
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 25);
+          }
+          else if (counter > 750) {
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 17);
+            servo_GripMotor.write(ci_Grip_Motor_Open);
+          }
+          else if (counter > 740) {
+            servo_ArmMotor.write(ci_Arm_Servo_Up - 30);
+          }
+          else {
+            ui_Robot_State_Index = 0;
+          }
+        }
+        break;
+      }
+
+    case 4://tesseract dropping if we dont have enough range with the pyramid pick up
+      {
+        servo_ArmMotor.write(ci_Arm_Servo_Down
+        
+        );
+        break;
+      }
+
+
+
+    case 5:    //Calibrate motor straightness after 3 seconds.
       {
 
         if (bt_3_S_Time_Up)
         {
-          // servo_LeftMotor.writeMicroseconds(1800);
-          //servo_RightMotor.writeMicroseconds(1800);
           if (!bt_Cal_Initialized)
           {
             bt_Cal_Initialized = true;
@@ -382,73 +462,17 @@ void loop()
           Serial.print(", R: ");
           Serial.println(encoder_RightMotor.getRawPosition());
 #endif
-          ui_Mode_Indicator_Index = 4;
-        }
-        break;
-      }
-    case 4:    //Calibrate motor straightness after 3 seconds.
-      {
-
-        if (bt_3_S_Time_Up)
-        {
-          if (!bt_Cal_Initialized)
-          {
-            bt_Cal_Initialized = true;
-            encoder_LeftMotor.zero();
-            encoder_RightMotor.zero();
-            ul_Calibration_Time = millis();
-            servo_LeftMotor.writeMicroseconds(ui_Motors_Speed);
-            servo_RightMotor.writeMicroseconds(ui_Motors_Speed);
-          }
-          else if ((millis() - ul_Calibration_Time) > ci_Motor_Calibration_Time)
-          {
-            servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
-            servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
-            l_Left_Motor_Position = encoder_LeftMotor.getRawPosition();
-            l_Right_Motor_Position = encoder_RightMotor.getRawPosition();
-            if (l_Left_Motor_Position > l_Right_Motor_Position)
-            {
-              // May have to update this if different calibration time is used
-              ui_Right_Motor_Offset = 0;
-              ui_Left_Motor_Offset = (l_Left_Motor_Position - l_Right_Motor_Position) / 4;
-            }
-            else
-            {
-              // May have to update this if different calibration time is used
-              ui_Right_Motor_Offset = (l_Right_Motor_Position - l_Left_Motor_Position) / 4;
-              ui_Left_Motor_Offset = 0;
-            }
-
-#ifdef DEBUG_MOTOR_CALIBRATION
-            Serial.print("Motor Offsets: Left = ");
-            Serial.print(ui_Left_Motor_Offset);
-            Serial.print(", Right = ");
-            Serial.println(ui_Right_Motor_Offset);
-#endif
-            EEPROM.write(ci_Right_Motor_Offset_Address_L, lowByte(ui_Right_Motor_Offset));
-            EEPROM.write(ci_Right_Motor_Offset_Address_H, highByte(ui_Right_Motor_Offset));
-            EEPROM.write(ci_Left_Motor_Offset_Address_L, lowByte(ui_Left_Motor_Offset));
-            EEPROM.write(ci_Left_Motor_Offset_Address_H, highByte(ui_Left_Motor_Offset));
-
-            ui_Robot_State_Index = 0;    // go back to Mode 0
-          }
-#ifdef DEBUG_MOTOR_CALIBRATION
-          Serial.print("Encoders L: ");
-          Serial.print(encoder_LeftMotor.getRawPosition());
-          Serial.print(", R: ");
-          Serial.println(encoder_RightMotor.getRawPosition());
-#endif
-          ui_Mode_Indicator_Index = 4;
+          ui_Mode_Indicator_Index = 5;
         }
         break;
 
       }
 
-    case 5: //turn function
+    case 6: //turn function
       {
-        if (spinTester == 0) {
-          servo_LeftMotor.writeMicroseconds(1600);
-          servo_RightMotor.writeMicroseconds(1430);
+        if (bt_3_S_Time_Up) {
+          servo_LeftMotor.writeMicroseconds(1620);
+          servo_RightMotor.writeMicroseconds(1440);
           Serial.print("angle_error = ");
           Serial.print(angle_error);
           total_diff = 0;
@@ -468,24 +492,14 @@ void loop()
           Serial.print(", angle_diff[2] = ");
           Serial.print(angle_diff[2]);
           Serial.print(", total_diff = ");
-          
+
           Serial.println(total_diff);
         }
 
         if (total_diff < 2 && angle_error < 0) {
-          //spinTester = 1;
-          //servo_LeftMotor.writeMicroseconds(1500);
-          //servo_RightMotor.writeMicroseconds(1500);
           ui_Robot_State_Index = 1;
         }
-        /*if (spinTester == 1) {
-          if (angle_error > 0) {
-            servo_LeftMotor.writeMicroseconds(1400);
-            servo_RightMotor.writeMicroseconds(1400);
 
-            //ui_Robot_State_Index = 1;
-          }
-          }*/
         break;
       }
   }
