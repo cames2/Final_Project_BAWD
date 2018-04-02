@@ -91,7 +91,7 @@ int spinTester = 0;
 byte b_LowByte;
 byte b_HighByte;
 double ul_Echo_Time;
-unsigned int ui_Motors_Speed = 1640;        // Default run speed
+unsigned int ui_Motors_Speed = 1700;        // Default run speed
 unsigned int ui_Motors_Reverse = 1400;
 unsigned int ui_Left_Motor_Speed;
 unsigned int ui_Right_Motor_Speed;
@@ -169,7 +169,8 @@ void setup() {
   pinMode(ci_rside_IR, INPUT);
 
   // Set up Microswitch pin
-  pinMode(ci_Microswitch, INPUT);
+  pinMode(ci_Cube_Microswitch, INPUT);
+  pinMode(ci_Pyramid_Microswitch, INPUT);
 
   // set up drive motors
   pinMode(ci_Right_Motor, OUTPUT);
@@ -359,20 +360,29 @@ void loop()
 
           // Serial.print("Angle = ");
           // Serial.println(angle_error);
-          Serial.print("frontWall_distance = ");      // Leave uncommented -- for some reason the P-controller doesn't work if this is commented out
+          Serial.print("frontWall_distance = ");
           //     Serial.println(frontWall_distance);
 
-          if (angle_error > 0) {     // Robot points away from wall
-            leftP_factor += angle_error * 10.0;
+          if ((front_error < 1) && (front_error > -1)) {
+            if (angle_error > 0) {     // Robot points away from wall
+              leftP_factor += angle_error * (50.0);              
+             // rightP_factor -= angle_error * (50.0/2);
+            }
+
+            if (angle_error < 0) {   // Robot points towards wall
+              rightP_factor -= angle_error * (50.0);
+             // leftP_factor += angle_error * (50.0/2);
+            }
           }
-          if (angle_error < 0) {   // Robot points towards wall
-            rightP_factor -= angle_error * 10.0;
-          }
+
           if (front_error > 0) {     // Front of robot is too far from wall
-            leftP_factor += front_error * 10.0;
+            leftP_factor += front_error * (50.0/2);
+            rightP_factor -= front_error * (50.0/2);
           }
+
           if (front_error < 0) {   // Front of robot is too close to wall
-            rightP_factor -= front_error * 10.0;
+            rightP_factor -= front_error * (50.0/2);
+            leftP_factor += front_error * (50.0/2);
           }
 
           servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - leftP_factor);
@@ -455,21 +465,21 @@ void loop()
           ui_Robot_State_Index = 6;
           break;
         }
-        if (digitalRead(lside_IR)) {    // Left IR sees correct pyramid
+        if (digitalRead(ci_lside_IR)) {    // Left IR sees correct pyramid
           servo_LeftMotor.writeMicroseconds(1500);
           servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - 60);
-          while (!(middle_IR)) {
+          while (!(ci_middle_IR)) {
             ;
           }
         }
-        if (digitalRead(rside_IR)) {    // Right IR sees correct pyramid
+        if (digitalRead(ci_rside_IR)) {    // Right IR sees correct pyramid
           servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - 60);
           servo_RightMotor.writeMicroseconds(1500);
-          while (!(middle_IR)) {
+          while (!(ci_middle_IR)) {
             ;
           }
         }
-        if (digitalRead(middle_IR)) {   // Middle IR sees correct pyramid
+        if (digitalRead(ci_middle_IR)) {   // Middle IR sees correct pyramid
           servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed);
           servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed);
           while (!(ci_Pyramid_Microswitch)) {
