@@ -1,6 +1,3 @@
-
-
-
 /*
   MSE 2202 Final Project - TEAM B.A.W.D.
   Language: Arduino
@@ -77,8 +74,8 @@ const int ci_Left_Motor_Stop = 1500;        // 200 for brake mode; 1500 for stop
 const int ci_Right_Motor_Stop = 1500;
 const int ci_Grip_Motor_Open = 100;         // Experiment to determine appropriate value
 const int ci_Grip_Motor_Closed = 10;        //  "
-const int ci_Arm_Servo_Up = 58;      //  "
-const int ci_Arm_Servo_Down = 5;      //  "
+const int ci_Arm_Servo_Up = 57;      //  "
+const int ci_Arm_Servo_Down = 0;      //  "
 const int ci_Display_Time = 500;
 const int ci_Line_Tracker_Calibration_Interval = 100;
 const int ci_Line_Tracker_Cal_Measures = 20;
@@ -93,10 +90,7 @@ int spinTester = 0;
 byte b_LowByte;
 byte b_HighByte;
 double ul_Echo_Time;
-unsigned int ui_Left_Line_Tracker_Data;
-unsigned int ui_Middle_Line_Tracker_Data;
-unsigned int ui_Right_Line_Tracker_Data;
-unsigned int ui_Motors_Speed = 1669;        // Default run speed
+unsigned int ui_Motors_Speed = 1640;        // Default run speed
 unsigned int ui_Motors_Reverse = 1400;
 unsigned int ui_Left_Motor_Speed;
 unsigned int ui_Right_Motor_Speed;
@@ -224,6 +218,12 @@ void loop()
     bt_Do_Once = LOW;
   }
 
+  // set motor speeds
+  ui_Left_Motor_Speed = constrain(ui_Motors_Speed + ui_Left_Motor_Offset, 1600, 2100);
+  ui_Right_Motor_Speed = constrain(ui_Motors_Speed + ui_Right_Motor_Offset, 1600, 2100);
+  ui_Left_Motor_Reverse = constrain(ui_Motors_Reverse - ui_Left_Motor_Offset, 900, 1500);
+  ui_Right_Motor_Reverse = constrain(ui_Motors_Reverse - ui_Right_Motor_Offset, 900, 1500);
+
   //ping values every loop through
   rearWall_distance = Ping(ci_rearUltrasonic_Ping, ci_rearUltrasonic_Data);
   frontWall_distance = Ping(ci_frontUltrasonic_Ping, ci_frontUltrasonic_Data);
@@ -255,7 +255,7 @@ void loop()
         encoder_RightMotor.zero();
         ui_Mode_Indicator_Index = 0;
         servo_GripMotor.write(ci_Grip_Motor_Open);
-        
+
         break;
       }
 
@@ -271,23 +271,23 @@ void loop()
           //     Serial.println(frontWall_distance);
 
           if (angle_error > 0) {     // Robot points away from wall
-            leftP_factor += angle_error * 40.0;
+            leftP_factor += angle_error * 10.0;
           }
 
           if (angle_error < 0) {   // Robot points towards wall
-            rightP_factor -= angle_error * 40.0;
+            rightP_factor -= angle_error * 10.0;
           }
 
           if (front_error > 0) {     // Front of robot is too far from wall
-            leftP_factor += front_error * 40.0;
+            leftP_factor += front_error * 10.0;
           }
 
           if (front_error < 0) {   // Front of robot is too close to wall
-            rightP_factor -= front_error * 50.0;
+            rightP_factor -= front_error * 10.0;
           }
 
-          servo_LeftMotor.writeMicroseconds(1650 - leftP_factor);
-          servo_RightMotor.writeMicroseconds(1650 - rightP_factor);
+          servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - leftP_factor);
+          servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - rightP_factor);
 
           //Serial.println(leftP_factor);
           //Serial.println(rightP_factor);
@@ -317,12 +317,6 @@ void loop()
           Serial.println(l_Right_Motor_Position);
           #endif*/
 
-        // set motor speeds
-        /*  ui_Left_Motor_Speed = constrain(ui_Motors_Speed + ui_Left_Motor_Offset, 1600, 2100);
-          ui_Right_Motor_Speed = constrain(ui_Motors_Speed + ui_Right_Motor_Offset, 1600, 2100);
-          ui_Left_Motor_Reverse = constrain(ui_Motors_Reverse - ui_Left_Motor_Offset, 900, 1500);
-          ui_Right_Motor_Reverse = constrain(ui_Motors_Reverse - ui_Right_Motor_Offset, 900, 1500);
-        */
         break;
       }
 
@@ -333,47 +327,38 @@ void loop()
           if (faceWall_distance < 7) {
             counter++;
           }
-
           if (counter < 10) {
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 35);
+          }
+          else if (counter < 25) {
             servo_ArmMotor.write(ci_Arm_Servo_Down + 25);
           }
-
-          else if (counter < 25) {
-            servo_ArmMotor.write(ci_Arm_Servo_Down + 18);
-          }
-
           else if (counter < 45) {
-            servo_ArmMotor.write(ci_Arm_Servo_Down + 12);
-          }
-
-          else if (counter < 60) {
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 19);
             servo_GripMotor.write(ci_Grip_Motor_Closed);
           }
           else if (counter < 80) {
-            servo_ArmMotor.write(ci_Arm_Servo_Up - 35);
-          }
-          else if (counter < 100) {
             servo_ArmMotor.write(ci_Arm_Servo_Up - 25);
           }
           else if (counter > 100) {
-            servo_ArmMotor.write(ci_Arm_Servo_Up - 12);
+            servo_ArmMotor.write(ci_Arm_Servo_Up - 10);
             counter = 1000;
             ui_Robot_State_Index = 3;
           }
         }
-        Serial.print("faceWall_distance = ");
-        Serial.println(faceWall_distance);
+        //Serial.print("faceWall_distance = ");
+        //dSerial.println(faceWall_distance);
         break;
       }
-    case 3:
+    case 3://putting the pyramd down
       {
         if (bt_3_S_Time_Up)
         {
           counter--;
 
-          if (counter > 870) {
-            servo_LeftMotor.writeMicroseconds(1400);
-            servo_RightMotor.writeMicroseconds(1400);
+          if (counter > 900) {
+            servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Reverse);
+            servo_RightMotor.writeMicroseconds(ui_Right_Motor_Reverse);
           }
           else if (counter > 800) {
             servo_LeftMotor.writeMicroseconds(1500);
@@ -388,12 +373,12 @@ void loop()
           }
           else if (counter > 750) {
             servo_ArmMotor.write(ci_Arm_Servo_Down + 17);
-            servo_GripMotor.write(ci_Grip_Motor_Open);
           }
           else if (counter > 740) {
-            servo_ArmMotor.write(ci_Arm_Servo_Up - 30);
+            servo_GripMotor.write(ci_Grip_Motor_Open);
           }
           else {
+            servo_ArmMotor.write(ci_Arm_Servo_Up - 30);
             ui_Robot_State_Index = 0;
           }
         }
@@ -402,10 +387,11 @@ void loop()
 
     case 4://tesseract dropping if we dont have enough range with the pyramid pick up
       {
-        servo_ArmMotor.write(ci_Arm_Servo_Down
-        
-        );
-        break;
+        if (bt_3_S_Time_Up)
+        {
+          servo_ArmMotor.write(ci_Arm_Servo_Down);
+          break;
+        }
       }
 
 
@@ -471,8 +457,8 @@ void loop()
     case 6: //turn function
       {
         if (bt_3_S_Time_Up) {
-          servo_LeftMotor.writeMicroseconds(1620);
-          servo_RightMotor.writeMicroseconds(1440);
+          servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed);
+          servo_RightMotor.writeMicroseconds(ui_Right_Motor_Reverse+15);
           Serial.print("angle_error = ");
           Serial.print(angle_error);
           total_diff = 0;
@@ -554,14 +540,14 @@ double Ping(unsigned int Input, unsigned int Output)
   return ((ul_Echo_Time / 30.0));
 }
 
- // -----------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------
 // --------------------------------------Pyramid Decoding------------------------------------
 /*
-// Serial.print(digitalRead(ci_Light_Sensor));
-if (digitalRead(ci_Left_Light_Sensor)==0) //if left ir sensor sees the light it should turn left until the left doesn't see it anymore and then forward towards it until the middle sensor sees the pyramid
-{
+  // Serial.print(digitalRead(ci_Light_Sensor));
+  if (digitalRead(ci_Left_Light_Sensor)==0) //if left ir sensor sees the light it should turn left until the left doesn't see it anymore and then forward towards it until the middle sensor sees the pyramid
+  {
   //***need turning and driving part above here****
- 
+
   if(digitalRead(ci_Middle_Light_Sensor) == 0) {
     //for AE pyramid because A is (01000001) and has 5 zeros in a row, so when we detect 5 1's in a row we know its the correct pyramid
     if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
@@ -571,11 +557,11 @@ if (digitalRead(ci_Left_Light_Sensor)==0) //if left ir sensor sees the light it 
     if (zeroCounter== 5)
        correctPyramid= true;
     }
-}
-if (digitalRead(ci_Right_Light_Sensor)==0) //if left ir sensor sees the light it should turn left until the left doesn't see it anymore and then forward towards it until the middle sensor sees the pyramid
-{
+  }
+  if (digitalRead(ci_Right_Light_Sensor)==0) //if left ir sensor sees the light it should turn left until the left doesn't see it anymore and then forward towards it until the middle sensor sees the pyramid
+  {
   //***need turning and driving part above here***
-  
+
   if(digitalRead(ci_Middle_Light_Sensor) == 0) {
       //for AE pyramid because A is (01000001) and has 5 zeros in a row, so when we detect 5 1's in a row we know its the correct pyramid
     if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
@@ -585,37 +571,37 @@ if (digitalRead(ci_Right_Light_Sensor)==0) //if left ir sensor sees the light it
     if (zeroCounter== 5)
       correctPyramid = true;
   }
-}
-if(digitalRead(ci_Middle_Light_Sensor) == 0) {    // Check if IR sensor sees light (1 =  no light, 0 = light)
+  }
+  if(digitalRead(ci_Middle_Light_Sensor) == 0) {    // Check if IR sensor sees light (1 =  no light, 0 = light)
                                                   // if middle sensor sees the light goes right into decoding mode
-{
-//for AE pyramid because A is (01000001) and has 5 zeros in a row, so when we detect 5 1's in a row we know its the correct pyramid
-if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
+  {
+  //for AE pyramid because A is (01000001) and has 5 zeros in a row, so when we detect 5 1's in a row we know its the correct pyramid
+  if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
   zeroCounter++;
-if (analogRead(A3)==0)
+  if (analogRead(A3)==0)
   zeroCounter=0;
-if (zeroCounter== 5)
+  if (zeroCounter== 5)
   return true;
-//******************************IO pyramid decode****************************
-// same above code but swithc if statements, and then depending on the switch it would go to either one
-//for IO pyramid because O is (01001111) and has 4 ones in a row, so when we detect 4 zeroes in a row we know its the correct pyramid
-if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
+  //******************************IO pyramid decode****************************
+  // same above code but swithc if statements, and then depending on the switch it would go to either one
+  //for IO pyramid because O is (01001111) and has 4 ones in a row, so when we detect 4 zeroes in a row we know its the correct pyramid
+  if (analogRead(A3)==1) //set equal to 1 because it's the opposite, when it's low, it prints out 1;
   zeroCounter=0;
-if (analogRead(A3)==0)
+  if (analogRead(A3)==0)
   zeroCounter++;
-if (zeroCounter== 4)
+  if (zeroCounter== 4)
   correctPyramid= true;
- */
-//still need to figure out way for it regonize if it's the INCORRECT pyramid  
+*/
+//still need to figure out way for it regonize if it's the INCORRECT pyramid
 
 // ----------------------------------------------------------------------------------------
 // -----------------------LOCATING PYRAMID DIRECTLY IN FRONT ------------------------------
 
 // if correct pyramid will turn until middle sensors see the light and the drive forward until mircoswitch is activiated on ziptie
 /*
-if (correctPyramid==true)
-{
-  if(digitalRead(ci_Middle_Light_Sensor) == 1) //turns right when middle sensor doesn't see the light 
+  if (correctPyramid==true)
+  {
+  if(digitalRead(ci_Middle_Light_Sensor) == 1) //turns right when middle sensor doesn't see the light
   {
     servo_LeftMotor.writeMicroseconds(1600);
     servo_RightMotor.writeMicroseconds(1430);
@@ -623,7 +609,7 @@ if (correctPyramid==true)
   //once middle sensor sees the light it will drive straight
   servo_LeftMotor.writeMicroseconds(1600);
   servo_RightMotor.writeMicroseconds(1600);
-  
+
   delay(10); //need this delay before it reads it, because due to the PULLUP function it reads 0 right away and then goes to 1
   pressSwitch = digitalRead(ci_microswitchTesseract);
   Serial.println (pressSwitch, DEC);
@@ -631,17 +617,17 @@ if (correctPyramid==true)
   {
      Serial.println("Switch Pressed!"); //this means pyramid is right in front of the robot and can go into Tesseract Placement Mode
      pyramidSwitch= true;
-     
+
      //makes the robot stop as soon as pyramid is right in front
      servo_LeftMotor.writeMicroseconds(1500);
      servo_RightMotor.writeMicroseconds(1500);
    //delay(1000); can use to be able to read it slower
- }
- 
- if(pyramidSwitch==true) //Tesseract Placement Mode
- {
- 
- }
+  }
+
+  if(pyramidSwitch==true) //Tesseract Placement Mode
+  {
+
+  }
 */
- // ---------------------------------------------------------------------------------------- 
+// ----------------------------------------------------------------------------------------
 
