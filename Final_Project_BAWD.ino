@@ -10,7 +10,7 @@
 #include <Servo.h>
 #include <EEPROM.h>
 #include <uSTimer2.h>
-#include <CharliePlexM.h>
+//#include <CharliePlexM.h>
 #include <Wire.h>
 #include <I2CEncoder.h>
 
@@ -33,12 +33,6 @@ I2CEncoder encoder_LeftMotor;
 //#define DEBUG_MOTOR_CALIBRATION
 
 boolean bt_Motors_Enabled = true;
-
-// CharliePlex pin numbers
-const int ci_Charlieplex_LED1;//needed to set up mode number
-const int ci_Charlieplex_LED2;    
-const int ci_Charlieplex_LED3 = 6;
-const int ci_Charlieplex_LED4 = 7;
 
 //port pin constants
 const int ci_frontUltrasonic_Ping = A0;   //input plug
@@ -104,6 +98,7 @@ unsigned int ui_Left_Motor_Reverse;
 unsigned int ui_Right_Motor_Reverse;
 unsigned long ul_3_Second_timer = 0;
 unsigned long ul_Display_Time;
+unsigned long ul_Smoothing_Counter;
 unsigned long ul_Calibration_Time;
 unsigned long ui_Left_Motor_Offset;
 unsigned long ui_Right_Motor_Offset;
@@ -142,12 +137,6 @@ unsigned int  ui_Mode_Indicator[6] = {
 
 unsigned int  ui_Mode_Indicator_Index = 0;
 
-//display Bits 0,1,2,3, 4, 5, 6,  7,  8,  9,  10,  11,  12,  13,   14,   15
-int  iArray[16] = {
-  1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 65536
-};
-int  iArrayIndex = 0;
-
 boolean bt_Heartbeat = true;
 boolean bt_3_S_Time_Up = false;
 boolean bt_Do_Once = false;
@@ -158,9 +147,6 @@ int counter = 0;
 void setup() {
   Wire.begin();        // Wire library required for I2CEncoder library
   Serial.begin(9600);
-
-  CharliePlexM::setBtn(ci_Charlieplex_LED1, ci_Charlieplex_LED2,
-                       ci_Charlieplex_LED3, ci_Charlieplex_LED4, ci_Mode_Button);
 
   // Set up ultrasonic sensor pins
   pinMode(ci_frontUltrasonic_Ping, OUTPUT);
@@ -178,6 +164,9 @@ void setup() {
   // Set up Microswitch pin
   pinMode(ci_Cube_Microswitch, INPUT);
   pinMode(ci_Pyramid_Microswitch, INPUT);
+
+  //set up button
+  pinMode(ci_Mode_Button, INPUT);
 
   // set up drive motors
   pinMode(ci_Right_Motor, OUTPUT);
@@ -219,13 +208,12 @@ void loop()
   }
 
   // button-based mode selection
-  if (CharliePlexM::ui_Btn)
-  {
+  if (!digitalRead(ci_Mode_Button)) { //CharliePlexM::ui_Btn
     if (bt_Do_Once == false)
     {
       bt_Do_Once = true;
       ui_Robot_State_Index++;
-      ui_Robot_State_Index = ui_Robot_State_Index & 10;
+      ui_Robot_State_Index = ui_Robot_State_Index % 9;
       ul_3_Second_timer = millis();
       bt_3_S_Time_Up = false;
       bt_Cal_Initialized = false;
@@ -282,6 +270,7 @@ void loop()
         encoder_RightMotor.zero();
         ui_Mode_Indicator_Index = 0;
         servo_GripMotor.write(ci_Grip_Motor_Open);
+        ul_Smoothing_Counter = millis();
         break;
       }
 
@@ -347,9 +336,13 @@ void loop()
 
     case 2:   // Look for AE pyramid (default is IO pyramid)
       {
-        correct_pyramid = 0;
-        ui_Robot_State_Index = 3;
-        break;
+        if (bt_3_S_Time_Up)
+        {
+          correct_pyramid = 0;
+          ui_Robot_State_Index = 3;
+
+          break;
+        }
       }
 
     // ---------------------------------------- 3 ------------------------------------------
@@ -360,54 +353,61 @@ void loop()
         {
           // ---------------------------- WALL FOLLOWING with P CONTROLLER ----------------------------
 
-          if (digitalRead(ci_Cube_Microswitch)) {
+          /*if (digitalRead(ci_Cube_Microswitch)) {
             ui_Robot_State_Index = 5;
             break;
-          }
+            }*/
 
           // Serial.print("Angle = ");
           // Serial.println(angle_error);
-          Serial.print("frontWall_distance = ");
-          //     Serial.println(frontWall_distance);
+          //Serial.print("frontWall_distance = ");
+          //Serial.println(frontWall_distance);
 
           if ((front_error < 1) && (front_error > -1)) {
             if (angle_error > 0) {     // Robot points away from wall
-              leftP_factor += angle_error * (50.0);              
-             // rightP_factor -= angle_error * (50.0/2);
+              leftP_factor += angle_error * (30.0);
+              // rightP_factor -= angle_error * (50.0/2);
             }
 
             if (angle_error < 0) {   // Robot points towards wall
-              rightP_factor -= angle_error * (50.0);
-             // leftP_factor += angle_error * (50.0/2);
+              rightP_factor -= angle_error * (30.0);
+              // leftP_factor += angle_error * (50.0/2);
             }
           }
 
           if (front_error > 0) {     // Front of robot is too far from wall
-            leftP_factor += front_error * (50.0/2);
-            rightP_factor -= front_error * (50.0/2);
+            leftP_factor += front_error * (30.0);
+            //rightP_factor -= front_error * (50.0 / 2);
           }
 
           if (front_error < 0) {   // Front of robot is too close to wall
-            rightP_factor -= front_error * (50.0/2);
-            leftP_factor += front_error * (50.0/2);
+            rightP_factor -= front_error * (30.0);
+            //leftP_factor += front_error * (50.0 / 2);
           }
 
           servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - leftP_factor);
           servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - rightP_factor);
 
-          //Serial.println(leftP_factor);
-          //Serial.println(rightP_factor);
+          Serial.println(leftP_factor);
+          Serial.println(rightP_factor);
+          Serial.println();
+
 
           leftP_factor = 0;
           rightP_factor = 0;
 
-          //Serial.print("  front Distance = ");
-          //Serial.print(frontWall_distance);
+          Serial.print("  front_error = ");
+          Serial.println(front_error);
+
+          Serial.print("  frontWALLDISTANCE = ");
+          Serial.println(frontWall_distance);
+
+          
           //Serial.print("     ");
 
-          if (faceWall_distance < 12) {
-            ui_Robot_State_Index = 4;
-          }
+          /* if (faceWall_distance < 12) {
+             ui_Robot_State_Index = 4;
+            }*/
         }
 
         // -----------------------------------------------------------------------------------------
@@ -487,14 +487,15 @@ void loop()
           }
         }
         if (digitalRead(ci_middle_IR)) {   // Middle IR sees correct pyramid
-          servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed);
-          servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed);
-          while (!(ci_Pyramid_Microswitch)) {
+          servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - 50);
+          servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - 50);
+          while (!(ci_Pyramid_Microswitch)) {//might add straightening function (turn turn look)
             ;
           }
           servo_LeftMotor.writeMicroseconds(1500);
           servo_RightMotor.writeMicroseconds(1500);
           ui_Robot_State_Index = 6;
+          ul_Smoothing_Counter = millis();
         }
       }
 
@@ -504,26 +505,22 @@ void loop()
       {
         if (bt_3_S_Time_Up)
         {
-          if (faceWall_distance < 7) {
-            counter++;
-          }
-          if (counter < 10) {
+          if ( millis() - ul_Smoothing_Counter < 1000) {
             servo_ArmMotor.write(ci_Arm_Servo_Down + 35);
           }
-          else if (counter < 25) {
+          else if ( millis() - ul_Smoothing_Counter < 1300) {
             servo_ArmMotor.write(ci_Arm_Servo_Down + 25);
           }
-          else if (counter < 45) {
+          else if ( millis() - ul_Smoothing_Counter < 1500) {
             servo_ArmMotor.write(ci_Arm_Servo_Down + 19);
             servo_GripMotor.write(ci_Grip_Motor_Closed);
           }
-          else if (counter < 80) {
+          else if ( millis() - ul_Smoothing_Counter < 1700) {
             servo_ArmMotor.write(ci_Arm_Servo_Up - 25);
           }
-          else if (counter > 100) {
+          else if ( millis() - ul_Smoothing_Counter < 1900) {
             servo_ArmMotor.write(ci_Arm_Servo_Up - 10);
-            counter = 1000;
-            ui_Robot_State_Index = 3;
+            ui_Robot_State_Index = 7;
           }
         }
         //Serial.print("faceWall_distance = ");
@@ -615,7 +612,7 @@ double Ping(unsigned int Input, unsigned int Output)
   Serial.print(", cm: ");
   Serial.println(ul_Echo_Time / 58); //divide time by 58 to get distance in cm
 #endif
-  return ((ul_Echo_Time / 30.0));
+  return ((ul_Echo_Time / 58.0));
 }
 
 // -----------------------------------------------------------------------------------------
@@ -707,15 +704,6 @@ double Ping(unsigned int Input, unsigned int Output)
 
   }
 */
-
-void Indicator()
-{
-  //display routine, if true turn on led
-  CharliePlexM::Write(ci_Indicator_LED, !(ui_Mode_Indicator[ui_Mode_Indicator_Index] &
-                                          (iArray[iArrayIndex])));
-  iArrayIndex++;
-  iArrayIndex = iArrayIndex & 15;
-}
 
 // ----------------------------------------------------------------------------------------
 

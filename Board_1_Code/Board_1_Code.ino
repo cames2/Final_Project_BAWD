@@ -11,8 +11,9 @@ const int lside_input_pin = 2;
 const int rside_input_pin = 3;
 const int middle_input_pin = 4;
 const int lside_output_pin = 5;
-const int rside_output_pin = 6;
-const int middle_output_pin = 7;
+const int middle_output_pin = 6;
+const int rside_output_pin = 7;
+
 
 // CharliePlex pin numbers
 const int ci_Charlieplex_LED1;    // Not in use
