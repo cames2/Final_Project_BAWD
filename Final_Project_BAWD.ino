@@ -271,6 +271,10 @@ void loop()
         ui_Mode_Indicator_Index = 0;
         servo_GripMotor.write(ci_Grip_Motor_Open);
         ul_Smoothing_Counter = millis();
+        /*Serial.print("Front = ");
+        Serial.println(frontWall_distance);
+        Serial.print("Rear  = ");
+        Serial.println(rearWall_distance);*/
         break;
       }
 
@@ -360,28 +364,32 @@ void loop()
 
           // Serial.print("Angle = ");
           // Serial.println(angle_error);
-          //Serial.print("frontWall_distance = ");
+          Serial.print("frontWall_distance = ");      // Absolutely need this uncommented, goes to shit otherwise
           //Serial.println(frontWall_distance);
 
           if ((front_error < 1) && (front_error > -1)) {
             if (angle_error > 0) {     // Robot points away from wall
               leftP_factor += angle_error * (30.0);
+              Serial.println("Angled out");
               // rightP_factor -= angle_error * (50.0/2);
             }
 
             if (angle_error < 0) {   // Robot points towards wall
               rightP_factor -= angle_error * (30.0);
+              Serial.println("Angled in");
               // leftP_factor += angle_error * (50.0/2);
             }
           }
 
           if (front_error > 0) {     // Front of robot is too far from wall
             leftP_factor += front_error * (30.0);
+            Serial.println("Too far");
             //rightP_factor -= front_error * (50.0 / 2);
           }
 
           if (front_error < 0) {   // Front of robot is too close to wall
-            rightP_factor -= front_error * (30.0);
+            rightP_factor -= front_error * (70.0);
+            Serial.println("Too close");
             //leftP_factor += front_error * (50.0 / 2);
           }
 
@@ -396,14 +404,11 @@ void loop()
           leftP_factor = 0;
           rightP_factor = 0;
 
-          Serial.print("  front_error = ");
-          Serial.println(front_error);
+          /*Serial.print("Front_error = ");
+          Serial.print(front_error);
 
-          Serial.print("  frontWALLDISTANCE = ");
-          Serial.println(frontWall_distance);
-
-          
-          //Serial.print("     ");
+          Serial.print(",  frontWALLDISTANCE = ");
+          Serial.println(frontWall_distance);*/
 
           /* if (faceWall_distance < 12) {
              ui_Robot_State_Index = 4;
