@@ -34,6 +34,12 @@ I2CEncoder encoder_LeftMotor;
 
 boolean bt_Motors_Enabled = true;
 
+// CharliePlex pin numbers
+const int ci_Charlieplex_LED1;//needed to set up mode number
+const int ci_Charlieplex_LED2;    
+const int ci_Charlieplex_LED3 = 6;
+const int ci_Charlieplex_LED4 = 7;
+
 //port pin constants
 const int ci_frontUltrasonic_Ping = A0;   //input plug
 const int ci_frontUltrasonic_Data = A1;   //output plug
@@ -84,7 +90,6 @@ const int ci_Line_Tracker_Tolerance = 169;   // May need to adjust this
 const int ci_Motor_Calibration_Cycles = 3;
 const int ci_Motor_Calibration_Time = 5000;
 const double wall_distance = 5;     // Centimeters
-const double wall_tolerance = 0.5;   // Centimeters
 int spinTester = 0;
 
 // Motor variables
@@ -120,7 +125,6 @@ double total_diff = 0;
 // Pyramid location variables
 boolean correct_pyramid = 1;    // 0 = AE, 1 = IO
 
-
 // No clue what these do
 unsigned int ui_Cal_Count;
 unsigned int ui_Cal_Cycle;
@@ -154,6 +158,9 @@ int counter = 0;
 void setup() {
   Wire.begin();        // Wire library required for I2CEncoder library
   Serial.begin(9600);
+
+  CharliePlexM::setBtn(ci_Charlieplex_LED1, ci_Charlieplex_LED2,
+                       ci_Charlieplex_LED3, ci_Charlieplex_LED4, ci_Mode_Button);
 
   // Set up ultrasonic sensor pins
   pinMode(ci_frontUltrasonic_Ping, OUTPUT);
@@ -218,7 +225,7 @@ void loop()
     {
       bt_Do_Once = true;
       ui_Robot_State_Index++;
-      ui_Robot_State_Index = ui_Robot_State_Index & 7;
+      ui_Robot_State_Index = ui_Robot_State_Index & 10;
       ul_3_Second_timer = millis();
       bt_3_S_Time_Up = false;
       bt_Cal_Initialized = false;
@@ -331,7 +338,7 @@ void loop()
           Serial.print(", R: ");
           Serial.println(encoder_RightMotor.getRawPosition());
 #endif
-          ui_Mode_Indicator_Index = 5;
+          ui_Mode_Indicator_Index = 1;
         }
         break;
       }
@@ -700,5 +707,15 @@ double Ping(unsigned int Input, unsigned int Output)
 
   }
 */
+
+void Indicator()
+{
+  //display routine, if true turn on led
+  CharliePlexM::Write(ci_Indicator_LED, !(ui_Mode_Indicator[ui_Mode_Indicator_Index] &
+                                          (iArray[iArrayIndex])));
+  iArrayIndex++;
+  iArrayIndex = iArrayIndex & 15;
+}
+
 // ----------------------------------------------------------------------------------------
 
