@@ -160,6 +160,8 @@ void loop() {
     switch_output = 2;
     microswitch_time = millis();
   }
+
+  // Reset pins to LOW after 1 second (makes a 1s pulse)
   if ((switch_output == 1) && (millis() - microswitch_time > 1000)) {
     digitalWrite(cube_switch_output_pin, LOW);
     switch_output = 0;
