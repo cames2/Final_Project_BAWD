@@ -272,9 +272,9 @@ void loop()
         servo_GripMotor.write(ci_Grip_Motor_Open);
         ul_Smoothing_Counter = millis();
         /*Serial.print("Front = ");
-        Serial.println(frontWall_distance);
-        Serial.print("Rear  = ");
-        Serial.println(rearWall_distance);*/
+          Serial.println(frontWall_distance);
+          Serial.print("Rear  = ");
+          Serial.println(rearWall_distance);*/
         break;
       }
 
@@ -369,26 +369,27 @@ void loop()
 
           if ((front_error < 1) && (front_error > -1)) {
             if (angle_error > 0) {     // Robot points away from wall
-              leftP_factor += angle_error * (30.0);
+              leftP_factor += angle_error * (50.0);
               Serial.println("Angled out");
               // rightP_factor -= angle_error * (50.0/2);
             }
 
             if (angle_error < 0) {   // Robot points towards wall
-              rightP_factor -= angle_error * (30.0);
+              rightP_factor -= angle_error * (50.0);
               Serial.println("Angled in");
               // leftP_factor += angle_error * (50.0/2);
             }
           }
 
           if (front_error > 0) {     // Front of robot is too far from wall
-            leftP_factor += front_error * (30.0);
+            leftP_factor += front_error * (50.0);
             Serial.println("Too far");
             //rightP_factor -= front_error * (50.0 / 2);
           }
 
           if (front_error < 0) {   // Front of robot is too close to wall
-            rightP_factor -= front_error * (70.0);
+            rightP_factor -= front_error * (80.0);
+            leftP_factor -= front_error * (40.0);
             Serial.println("Too close");
             //leftP_factor += front_error * (50.0 / 2);
           }
@@ -396,23 +397,25 @@ void loop()
           servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - leftP_factor);
           servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - rightP_factor);
 
-          Serial.println(leftP_factor);
-          Serial.println(rightP_factor);
-          Serial.println();
+          /*Serial.println(leftP_factor);
+            Serial.println(rightP_factor);
+            Serial.println();*/
 
 
           leftP_factor = 0;
           rightP_factor = 0;
 
           /*Serial.print("Front_error = ");
-          Serial.print(front_error);
+            Serial.print(front_error);
 
-          Serial.print(",  frontWALLDISTANCE = ");
-          Serial.println(frontWall_distance);*/
+            Serial.print(",  frontWALLDISTANCE = ");
+            Serial.println(frontWall_distance);*/
 
-          /* if (faceWall_distance < 12) {
-             ui_Robot_State_Index = 4;
-            }*/
+          Serial.print("face distance = ");
+          Serial.println(faceWall_distance);
+          if (faceWall_distance < 15) {
+            ui_Robot_State_Index = 4;
+          }
         }
 
         // -----------------------------------------------------------------------------------------
@@ -435,8 +438,8 @@ void loop()
     case 4:   // Turn 90-degrees at wall corners
       {
         if (bt_3_S_Time_Up) {
-          servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed);
-          servo_RightMotor.writeMicroseconds(ui_Right_Motor_Reverse + 15);
+          servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed + 100);
+          servo_RightMotor.writeMicroseconds(ui_Right_Motor_Reverse);
 
           Serial.print("angle_error = ");
           Serial.print(angle_error);
@@ -462,7 +465,7 @@ void loop()
           Serial.println(total_diff);
         }
 
-        if (total_diff < 2 && angle_error < 0) {
+        if (total_diff < 3 && angle_error < 2) {
           ui_Robot_State_Index = 3;
         }
 
