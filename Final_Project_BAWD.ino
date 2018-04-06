@@ -18,9 +18,11 @@ Servo servo_RightMotor;
 Servo servo_LeftMotor;
 Servo servo_ArmMotor;
 Servo servo_GripMotor;
+Servo servo_StringMotor;
 
 I2CEncoder encoder_RightMotor;
 I2CEncoder encoder_LeftMotor;
+I2CEncoder encoder_StringMotor;
 
 // Uncomment keywords to enable debugging output
 
@@ -54,6 +56,7 @@ const int ci_Pyramid_Microswitch = 13;
 const int ci_Motor_Enable_Switch; //= 12; SWITCHED SO WE CAN USE ULTRASONIC//wire removed
 const int ci_I2C_SDA = A4;         // I2C data = white
 const int ci_I2C_SCL = A5;         // I2C clock = yellow
+const int ci_String_Motor = 5;
 
 // Charlieplexing LED assignments
 const int ci_Heartbeat_LED = 1;
@@ -75,7 +78,7 @@ const int ci_Left_Motor_Stop = 1500;        // 200 for brake mode; 1500 for stop
 const int ci_Right_Motor_Stop = 1500;
 const int ci_Grip_Motor_Open = 100;         // Experiment to determine appropriate value
 const int ci_Grip_Motor_Closed = 10;        //  "
-const int ci_Arm_Servo_Up = 57;      //  "
+const int ci_Arm_Servo_Up = 51;      //  "
 const int ci_Arm_Servo_Down = 0;      //  "
 const int ci_Display_Time = 500;
 const int ci_Motor_Calibration_Cycles = 3;
@@ -88,6 +91,7 @@ double ul_Echo_Time;
 unsigned int ui_Motors_Speed = 1700;        // Default run speed
 unsigned int ui_Motors_Reverse = 1400;
 unsigned int ui_Left_Motor_Speed;
+unsigned int ui_SAVED_Left_Motor_Speed;
 unsigned int ui_Right_Motor_Speed;
 unsigned int ui_Left_Motor_Reverse;
 unsigned int ui_Right_Motor_Reverse;
@@ -99,8 +103,7 @@ unsigned long ui_Left_Motor_Offset;
 unsigned long ui_Right_Motor_Offset;
 
 // Wall-following constants
-const double wall_distance = 5;     // Centimeters
-const double begin_turn_distance = 15;    // Centimeters
+const double wall_distance = 6;     // Centimeters
 
 // Wall-following variables
 long l_Left_Motor_Position;
@@ -116,10 +119,14 @@ double angles[2] = {0};
 double angle_diff[3] = {10, 10, 10};
 double total_diff = 0;
 double prev_total_diff = 0;
+double begin_turn_distance = 18;    // Centimeters
+double begin_pyramid_turn_distance = 19
+
+                                     ;    // Centimeters
 boolean continue_wall_following = 0;    // 0 = continue, 1 = begin pyramid search
 
 // Pyramid-finding constants
-unsigned int time_90deg_turn = 1200;    // Milliseconds to complete a 90-degree turn
+unsigned int time_180deg_turn = 2900;    // Milliseconds to complete a 90-degree turn
 
 // Pyramid location variables
 boolean correct_pyramid = 1;    // 0 = AE, 1 = IO
@@ -164,7 +171,7 @@ void setup() {
 
   // Set up IR sensor pins
   pinMode(ci_lside_IR, INPUT);
-  pinMode(ci_middle_IR, INPUT);
+  //pinMode(ci_middle_IR, INPUT);
   pinMode(ci_rside_IR, INPUT);
 
   // Set up Microswitch pin
@@ -186,6 +193,10 @@ void setup() {
   pinMode(ci_Grip_Motor, OUTPUT);
   servo_GripMotor.attach(ci_Grip_Motor);
 
+  // Set up string motor
+  pinMode(ci_String_Motor, OUTPUT);
+  servo_StringMotor.attach(ci_String_Motor);
+
   // set up motor enable switch
   pinMode(ci_Motor_Enable_Switch, INPUT);
 
@@ -196,6 +207,8 @@ void setup() {
   encoder_LeftMotor.setReversed(false);  // adjust for positive count when moving forward
   encoder_RightMotor.init(1.0 / 3.0 * MOTOR_393_SPEED_ROTATIONS, MOTOR_393_TIME_DELTA);
   encoder_RightMotor.setReversed(true);  // adjust for positive count when moving forward
+  encoder_StringMotor.init(1.0 / 3.0 * MOTOR_393_SPEED_ROTATIONS, MOTOR_393_TIME_DELTA);
+  encoder_StringMotor.setReversed(true);  // adjust for positive count when moving forward
 
   // read saved values from EEPROM
   b_LowByte = EEPROM.read(ci_Left_Motor_Offset_Address_L);
@@ -242,7 +255,7 @@ void loop()
   frontWall_distance = Ping(ci_frontUltrasonic_Ping, ci_frontUltrasonic_Data);
   faceWall_distance = Ping(ci_faceUltrasonic_Ping, ci_faceUltrasonic_Data);
   if (faceWall_distance == 0) {
-    faceWall_distance = 20;
+    faceWall_distance = 30;
   }
   angle_error = frontWall_distance - rearWall_distance;
   front_error = frontWall_distance - wall_distance;
@@ -250,17 +263,22 @@ void loop()
   // Check if drive motors should be powered
   bt_Motors_Enabled = digitalRead(ci_Motor_Enable_Switch);
 
+  //Serial.println("Looping");
+  //Serial.print("ui_Robot_State_Index");
+  //Serial.println(ui_Robot_State_Index);
+
   // ======================================================= TABLE OF CONTENTS =======================================================
 
   //                                               0 = Default after power-up/reset
-  //                                               1 = Calibrate motor straightness
-  //                                               2 = Look for AE pyramid (default is IO pyramid)
-  //                                               3 = Find tesseract
-  //                                               4 = Turn 90-degrees at wall corners
-  //                                               5 = Find pyramid
-  //                                               6 = Grab & lift pyramid
-  //                                               7 = Place pyramid over tesseract
-  //                                               8 = Safety case in case magnet does not pull tesseract in far enough
+  //                                               1 = Calibrate motor straightness\
+  //                                               2 = Drive towards a wall
+  //                                               3 = Look for AE pyramid (default is IO pyramid)
+  //                                               4 = Find tesseract
+  //                                               5 = Turn 90-degrees at wall corners
+  //                                               6 = Find pyramid
+  //                                               7 = Grab & lift pyramid
+  //                                               8 = Place pyramid over tesseract
+  //                                               9 = Safety case in case magnet does not pull tesseract in far enough
 
   // =================================================== START OF SWITCH STATEMENT ===================================================
 
@@ -270,6 +288,9 @@ void loop()
 
     case 0:   // Default after power-up/reset
       {
+        //Serial.println("Case 0");
+        //ui_Robot_State_Index = 7;
+
         Ping(ci_frontUltrasonic_Ping, ci_frontUltrasonic_Data);
         servo_ArmMotor.write(ci_Arm_Servo_Up);
         encoder_LeftMotor.zero();
@@ -278,10 +299,19 @@ void loop()
         servo_GripMotor.write(ci_Grip_Motor_Open);
         ul_Smoothing_Counter = millis();
 
+        if (digitalRead(ci_Cube_Microswitch)) {
+          Serial.println("Cube Switch Engaged");
+        }
+
+        if (digitalRead(ci_Pyramid_Microswitch)) {
+          Serial.println("Pyramid Switch Engaged");
+        }
+
+
         Serial.print("Left_IR = ");
         Serial.print(digitalRead(ci_lside_IR));
         Serial.print(", Middle_IR = ");
-        Serial.print(digitalRead(ci_middle_IR));
+        Serial.print(digitalRead(ci_lside_IR) + digitalRead(ci_rside_IR));
         Serial.print(", Right_IR = ");
         Serial.println(digitalRead(ci_rside_IR));
 
@@ -316,6 +346,8 @@ void loop()
       {
         if (bt_3_S_Time_Up)
         {
+          Serial.println("Case 1");
+
           if (!bt_Cal_Initialized)
           {
             bt_Cal_Initialized = true;
@@ -370,34 +402,66 @@ void loop()
 
     // ---------------------------------------- 2 ------------------------------------------
 
-    case 2:   // Look for AE pyramid (default is IO pyramid)
+    case 2: {  // Drive towards wall & look for IO pyramid by default
+        if (bt_3_S_Time_Up)
+        {
+          Serial.println("Case 2");
+
+          servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - 20);
+          servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - 20);
+
+          Serial.print("faceWall_distance = ");
+          Serial.println(faceWall_distance);
+
+          if (faceWall_distance < begin_pyramid_turn_distance - 2) {
+            ui_Robot_State_Index = 5;
+          }
+        }
+        break;
+      }
+
+
+    // ---------------------------------------- 3 ------------------------------------------
+
+    case 3:   // Look for AE pyramid (default is IO pyramid)
       {
         if (bt_3_S_Time_Up)
         {
+          Serial.println("Case 3");
+
           correct_pyramid = 0;
-          ui_Robot_State_Index = 3;
+          ui_Robot_State_Index = 2;
 
           break;
         }
       }
 
-    // ---------------------------------------- 3 ------------------------------------------
+    // ---------------------------------------- 4 ------------------------------------------
 
-    case 3:    // Find tesseract
+    case 4:    // Find tesseract
       {
         if (bt_3_S_Time_Up)
         {
-          /*if (digitalRead(ci_Cube_Microswitch)) {
-            ui_Robot_State_Index = 5;
+          Serial.println("Case 4");
+
+          if (digitalRead(ci_Cube_Microswitch)) {
+            ui_Robot_State_Index = 6;
             break;
-            }*/
+          }
 
           // Serial.print("Angle = ");
           // Serial.println(angle_error);
           Serial.print("frontWall_distance = ");      // Absolutely need this uncommented, goes to shit otherwise
           //Serial.println(frontWall_distance);
 
-          if ((front_error < 1) && (front_error > -1)) {
+          if ((frontWall_distance == 0) || (rearWall_distance == 0)) {  // Robot points towards wall
+            servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed + 30);
+            servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - 30);
+
+            break;
+          }
+
+          if ((front_error < 2) && (front_error > -2)) {
             if (angle_error > 0) {     // Robot points away from wall
               leftP_factor += angle_error * (50.0);
               Serial.println("Angled out");
@@ -412,20 +476,20 @@ void loop()
           }
 
           if (front_error > 0) {     // Front of robot is too far from wall
-            leftP_factor += front_error * (50.0);
+            leftP_factor += front_error * (40.0);
             Serial.println("Too far");
             //rightP_factor -= front_error * (50.0 / 2);
           }
 
           if (front_error < 0) {   // Front of robot is too close to wall
             rightP_factor -= front_error * (80.0);
-            leftP_factor -= front_error * (40.0);
+            leftP_factor -= front_error * (35.0);
             Serial.println("Too close");
             //leftP_factor += front_error * (50.0 / 2);
           }
 
-          servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - leftP_factor);
-          servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - rightP_factor);
+          servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed + 50 - leftP_factor);
+          servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed + 50 - rightP_factor);
 
           /*Serial.println(leftP_factor);
             Serial.println(rightP_factor);
@@ -444,157 +508,208 @@ void loop()
           Serial.print("face distance = ");
           Serial.println(faceWall_distance);
 
-          if (faceWall_distance < begin_turn_distance) {
-            if (continue_wall_following == 0) ui_Robot_State_Index = 4;
-            else ui_Robot_State_Index = 5;
-          }
 
           if (digitalRead(ci_Cube_Microswitch)) {
+            ui_Robot_State_Index = 6;
             continue_wall_following = 1;
+            Serial.print("cube found ");
+
+            /* if (counter < 1 ) {
+               ui_SAVED_Left_Motor_Speed = ui_Left_Motor_Speed;
+               ui_Left_Motor_Speed += 120;
+               continue_wall_following = 1;
+               counter++;
+              }*/
           }
-        }
 
-        break;
-      }
-
-    // ---------------------------------------- 4 ------------------------------------------
-
-    case 4:   // Turn 90-degrees at wall corners
-      {
-        if (bt_3_S_Time_Up) {
-          if (Turn90Deg()) {
-            ui_Robot_State_Index = 3;
+          if (faceWall_distance < begin_turn_distance) {
+            if (continue_wall_following == 0) {
+              ui_Robot_State_Index = 5;
+            }
+            else {
+              ui_Robot_State_Index = 6;
+              ui_Left_Motor_Speed = ui_SAVED_Left_Motor_Speed;
+            }
           }
+
         }
         break;
       }
 
     // ---------------------------------------- 5 ------------------------------------------
 
-    case 5:   // Find pyramid
+    case 5:   // Turn 90-degrees at wall corners
       {
         if (bt_3_S_Time_Up) {
-          // Drive straight
-          servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed);
-          servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed);
-          Serial.println("Driving straight");
+          Serial.println("Case 5");
 
-          // Turn if face ultrasonic sensor sees a wall
-          if (faceWall_distance < begin_turn_distance) {
-            if (turn_counter % 2 == 0) {
-              if (Turn90Deg()) {      // "Calibrates" every other turn to finish parallel w.r.t. wall
-                current_time = millis();
-                Serial.println("Turning right 180 deg");
-                while (millis() - current_time < time_90deg_turn) {
-                  servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed);
-                  servo_RightMotor.writeMicroseconds(1500);
-                }
-                turn_counter++;
-              }
-            }
-            else {    // 180-degree turn
-              current_time = millis();
-              Serial.println("Turning left 180 deg");
-              while (millis() - current_time < 2 * time_90deg_turn) {
-                servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed);
-                servo_RightMotor.writeMicroseconds(1500);
-              }
-              turn_counter++;
-            }
-          }
-
-          if (digitalRead(ci_lside_IR)) {    // Left IR sees correct pyramid
-            servo_LeftMotor.writeMicroseconds(1500);
-            servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - 60);
-            Serial.println("Left IR sees");
-            while (!(ci_middle_IR)) {
-              ;
-            }
-          }
-          if (digitalRead(ci_rside_IR)) {    // Right IR sees correct pyramid
-            servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - 60);
-            servo_RightMotor.writeMicroseconds(1500);
-            Serial.println("Right IR sees");
-            while (!(ci_middle_IR)) {
-              ;
-            }
-          }
-          if (digitalRead(ci_middle_IR)) {   // Middle IR sees correct pyramid
-            Serial.println("Middle IR sees");
-            while (!(ci_Pyramid_Microswitch)) {
-              servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - 50);
-              servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - 50);
-              while (!(digitalRead(ci_middle_IR))) {      // In case middle IR loses sight of the pyramid
-                servo_LeftMotor.writeMicroseconds(1600);
-                servo_LeftMotor.writeMicroseconds(1400);
-              }
-            }
-            servo_LeftMotor.writeMicroseconds(1500);
-            servo_RightMotor.writeMicroseconds(1500);
-            //ui_Robot_State_Index = 6;
-            ul_Smoothing_Counter = millis();
+          if (Turn90Deg()) {
+            ui_Robot_State_Index = 4;
           }
         }
+        break;
       }
 
     // ---------------------------------------- 6 ------------------------------------------
 
-    case 6:   // Grab & lift pyramid
+    case 6:   // Find pyramid
       {
-        if (bt_3_S_Time_Up)
-          Serial.println("Case 6");
+        if (bt_3_S_Time_Up) {
+          //Serial.println("Case 6");
 
-        {
-          if ( millis() - ul_Smoothing_Counter < 3000) {
-            servo_ArmMotor.write(ci_Arm_Servo_Down + 35);
+          // Drive straight
+          servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - 70 + 69);
+          servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - 70 + 69);
+          Serial.println("Driving straight");
+          Serial.print("faceDistance = ");
+          Serial.println(faceWall_distance);
+          Serial.print("frontDistance = ");
+          Serial.println(frontWall_distance);
+
+
+          if ((frontWall_distance < 11) && (frontWall_distance != 0)) {
+            current_time = millis();
+            while (millis() - current_time < time_180deg_turn - 1300) {
+              servo_LeftMotor.writeMicroseconds(1670);
+              servo_RightMotor.writeMicroseconds(1420);
+              Serial.print("turning off wall");
+            }
           }
-          else if ( millis() - ul_Smoothing_Counter < 3300) {
-            servo_ArmMotor.write(ci_Arm_Servo_Down + 25);
+
+          // Turn if face ultrasonic sensor sees a wall
+          if (faceWall_distance < begin_pyramid_turn_distance) {
+            //  if (turn_counter % 2 == 0) {
+            current_time = millis();
+
+            //Serial.println("Turning right 180 deg");
+            while (millis() - current_time < time_180deg_turn) {
+              servo_LeftMotor.writeMicroseconds(1660);
+              servo_RightMotor.writeMicroseconds(1390);
+            }
+            turn_counter++;
+            // }
+            /*else {    // 180-degree turn
+              current_time = millis();
+              while (millis() - current_time < time_180deg_turn) {
+                Serial.println("Turning left 180 deg");
+                servo_LeftMotor.writeMicroseconds(1390);
+                servo_RightMotor.writeMicroseconds(1660);
+              }
+              turn_counter++;
+              }*/
           }
-          else if ( millis() - ul_Smoothing_Counter < 3500) {
-            servo_ArmMotor.write(ci_Arm_Servo_Down + 19);
-            servo_GripMotor.write(ci_Grip_Motor_Closed);
+
+          if (digitalRead(ci_lside_IR)) {    // Left IR sees correct pyramid
+            servo_LeftMotor.writeMicroseconds(1390);
+            servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - 55);
+            begin_pyramid_turn_distance = 0;
+            Serial.println("Left IR sees");
+            while ((digitalRead(ci_lside_IR) + digitalRead(ci_rside_IR) < 2) && !(digitalRead(ci_rside_IR))) {
+              Serial.println("Left while loop");
+            }
           }
-          else if ( millis() - ul_Smoothing_Counter < 3700) {
-            servo_ArmMotor.write(ci_Arm_Servo_Up - 25);
+          if (digitalRead(ci_rside_IR)) {    // Right IR sees correct pyramid
+            servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - 55);
+            servo_RightMotor.writeMicroseconds(1390);
+            begin_pyramid_turn_distance = 0;
+            Serial.println("Right IR sees");
+            while ((digitalRead(ci_lside_IR) + digitalRead(ci_rside_IR) < 2) &&
+                   !(digitalRead(ci_lside_IR))) {
+              Serial.println("Right while loop");
+            }
+            //Serial.println("OUT OF LOOP");
+
           }
-          else if ( millis() - ul_Smoothing_Counter < 3900) {
-            servo_ArmMotor.write(ci_Arm_Servo_Up - 10);
+          if ((digitalRead(ci_lside_IR)) && (digitalRead(ci_rside_IR))) {   // Middle IR sees correct pyramid
+            Serial.println("Middle IR sees");
+            Serial.println(digitalRead(ci_Pyramid_Microswitch));
+
+            while (!(digitalRead(ci_Pyramid_Microswitch))) {
+              servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed - 40);
+              servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed - 40);
+              begin_pyramid_turn_distance = 0;
+              Serial.println("Middle IR LOOP");
+
+            }
+            servo_LeftMotor.writeMicroseconds(1500);
+            servo_RightMotor.writeMicroseconds(1500);
             ui_Robot_State_Index = 7;
             ul_Smoothing_Counter = millis();
           }
         }
-        //Serial.print("faceWall_distance = ");
-        //dSerial.println(faceWall_distance);
         break;
       }
 
     // ---------------------------------------- 7 ------------------------------------------
 
-    case 7:   // Place pyramid over tesseract
+    case 7:   // Grab & lift pyramid
+      {
+        if (bt_3_S_Time_Up) {
+          Serial.println("Case 7");
+
+          servo_StringMotor.writeMicroseconds(2000);
+
+          if ( millis() - ul_Smoothing_Counter < 500) {
+            servo_LeftMotor.writeMicroseconds(1380); //FIDDLE WITH
+            servo_RightMotor.writeMicroseconds(1380);
+          }
+          else if ( millis() - ul_Smoothing_Counter < 900) {
+            servo_LeftMotor.writeMicroseconds(1500); //FIDDLE WITH
+            servo_RightMotor.writeMicroseconds(1500);
+          }
+          else if ( millis() - ul_Smoothing_Counter < 13000) {
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 35);
+          }
+          else if ( millis() - ul_Smoothing_Counter < 13300) {
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 25);
+          }
+          else if ( millis() - ul_Smoothing_Counter < 13700) {
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 15);
+          }
+          else if ( millis() - ul_Smoothing_Counter < 14100) {
+            servo_ArmMotor.write(ci_Arm_Servo_Down + 9);
+            servo_GripMotor.write(ci_Grip_Motor_Closed);
+          }
+          else if ( millis() - ul_Smoothing_Counter < 14900) {
+            servo_ArmMotor.write(ci_Arm_Servo_Up - 10);
+          }
+          else if ( millis() - ul_Smoothing_Counter < 15500) {
+            servo_ArmMotor.write(ci_Arm_Servo_Up + 10);
+            ui_Robot_State_Index = 8;
+            ul_Smoothing_Counter = millis();
+          }
+        }
+        //Serial.print("faceWall_distance = ");
+        //Serial.println(faceWall_distance);
+        break;
+      }
+
+    // ---------------------------------------- 8 ------------------------------------------
+
+    case 8:   // Place pyramid over tesseract
       {
         if (bt_3_S_Time_Up)
         {
-          if ( millis() - ul_Smoothing_Counter < 5000) {
+          if ( millis() - ul_Smoothing_Counter < 3000) {
             servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Reverse);
             servo_RightMotor.writeMicroseconds(ui_Right_Motor_Reverse);
           }
-          else if ( millis() - ul_Smoothing_Counter < 5500) {
+          else if ( millis() - ul_Smoothing_Counter < 3500) {
             servo_LeftMotor.writeMicroseconds(1500);
             servo_RightMotor.writeMicroseconds(1500);
             servo_ArmMotor.write(ci_Arm_Servo_Down + 35);
           }
-          else if ( millis() - ul_Smoothing_Counter < 5900) {
+          else if ( millis() - ul_Smoothing_Counter < 3900) {
             servo_ArmMotor.write(ci_Arm_Servo_Down + 30);
           }
-          else if ( millis() - ul_Smoothing_Counter < 6100) {
+          else if ( millis() - ul_Smoothing_Counter < 4100) {
             servo_ArmMotor.write(ci_Arm_Servo_Down + 25);
           }
-          else if ( millis() - ul_Smoothing_Counter < 6300) {
+          else if ( millis() - ul_Smoothing_Counter < 4300) {
             servo_ArmMotor.write(ci_Arm_Servo_Down + 17);
             servo_GripMotor.write(ci_Grip_Motor_Open);
           }
-          else if ( millis() - ul_Smoothing_Counter < 7000) {
+          else if ( millis() - ul_Smoothing_Counter < 5000) {
             servo_ArmMotor.write(ci_Arm_Servo_Up - 30);
             ui_Robot_State_Index = 0;
           }
@@ -602,9 +717,9 @@ void loop()
         break;
       }
 
-    // ---------------------------------------- 8 ------------------------------------------
+    // ---------------------------------------- 9 ------------------------------------------
 
-    case 8:   // Safety case in case magnet does not pull tesseract in far enough
+    case 9:   // Safety case in case magnet does not pull tesseract in far enough
       {
         if (bt_3_S_Time_Up)
         {
@@ -653,10 +768,10 @@ double Ping(unsigned int Input, unsigned int Output)
 }
 
 boolean Turn90Deg() {
-  servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed + 150);
-  servo_RightMotor.writeMicroseconds(ui_Right_Motor_Reverse);
+  servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed + 160);
+  servo_RightMotor.writeMicroseconds(ui_Right_Motor_Reverse - 20);
 
-  Serial.print("angle_error = ");
+  Serial.print("TFangle_error = ");
   Serial.print(angle_error);
 
   total_diff = 0;

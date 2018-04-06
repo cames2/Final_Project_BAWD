@@ -8,12 +8,11 @@
 
 // IR pin numbers
 const int lside_input_pin = 2;
-const int rside_input_pin = 3;
-const int middle_input_pin = 4;
+const int middle_input_pin = 3;
+const int rside_input_pin = 4;
 const int lside_output_pin = 5;
 const int middle_output_pin = 6;
 const int rside_output_pin = 7;
-
 
 // CharliePlex pin numbers
 const int ci_Charlieplex_LED1;    // Not in use
@@ -173,86 +172,91 @@ void loop() {
 
   // IR serial decoding
   switch (ui_Robot_State_Index) {
-    case 0: {   // Leave empty
-        break;
-      }
-    case 1: {   // Look for AE pyramid
-        if (bt_3_S_Time_Up) {
-          correct_pyramid = 0;
-          ui_Robot_State_Index = 3;
-          break;
-        }
-      }
     case 2: {   // Look for IO pyramid
         if (bt_3_S_Time_Up) {
           correct_pyramid = 1;
-          ui_Robot_State_Index = 3;
+          //ui_Robot_State_Index = 3;
           break;
         }
       }
-    case 3: {
+    case 3: {   // Look for AE pyramid
         if (bt_3_S_Time_Up) {
-          if (sensor_index == 0) {
-            if (lside_IR.available()) {
-              Serial.print("Left sensor available.   Output = ");
-              left_output = lside_IR.read();
-              Serial.print(left_output);
-              Serial.println();
-              if ((left_output == 'A') || (left_output == 'E')) {
-                if (correct_pyramid == 0) digitalWrite(lside_output_pin, HIGH);
-              }
-              if ((left_output == 'I') || (left_output == 'O')) {
-                if (correct_pyramid == 1) digitalWrite(lside_output_pin, HIGH);
-              }
-            }
-          }
-          if (sensor_index == 1) {
-            if (rside_IR.available()) {
-              Serial.print("Right sensor available.  Output = ");
-              right_output = rside_IR.read();
-              Serial.print(right_output);
-              Serial.println();
-              if ((right_output == 'A') || (right_output == 'E')) {
-                if (correct_pyramid == 0) digitalWrite(rside_output_pin, HIGH);
-              }
-              if ((right_output == 'I') || (right_output == 'O')) {
-                if (correct_pyramid == 1) digitalWrite(rside_output_pin, HIGH);
-              }
-            }
-          }
-
-          if (sensor_index == 2) {
-            if (middle_IR.available()) {
-              Serial.print("Middle sensor available. Output = ");
-              middle_output = middle_IR.read();
-              Serial.write(middle_output);
-              Serial.println();
-              if ((middle_output == 'A') || (middle_output == 'E')) {
-                if (correct_pyramid == 0) digitalWrite(middle_output_pin, HIGH);
-              }
-              if ((middle_output == 'I') || (middle_output == 'O')) {
-                if (correct_pyramid == 1) digitalWrite(middle_output_pin, HIGH);
-              }
-            }
-          }
-
-          if (++sensor_index == 3) {
-            sensor_index = 0;
-          }
-          if (millis() - current_time > 100) {
-            lside_IR.end();
-            rside_IR.end();
-            middle_IR.end();
-            Serial.end();
-            IR_setup();
-          }
-
+          correct_pyramid = 0;
+          //ui_Robot_State_Index = 3;
           break;
         }
       }
   }
-}
+  // Check IR sensors
+  if (sensor_index == 0) {
+    if (lside_IR.available()) {
+      // Serial.print("Left sensor available.   Output = ");
+      left_output = lside_IR.read();
+      // Serial.print(left_output);
+      // Serial.println();
+      if ((left_output == 'A') || (left_output == 'E')) {
+        if (correct_pyramid == 0) {
+          digitalWrite(lside_output_pin, HIGH);
+        }
+      }
+      if ((left_output == 'I') || (left_output == 'O')) {
+        if (correct_pyramid == 1) digitalWrite(lside_output_pin, HIGH);
+      }
+    }
+    Serial.print("Left = ");
+    Serial.println(digitalRead(lside_output_pin));
+  }
 
+  if (sensor_index == 1) {
+    if (rside_IR.available()) {
+      Serial.print("Right sensor available.  Output = ");
+      right_output = rside_IR.read();
+      Serial.print(right_output);
+      Serial.println();
+      if ((right_output == 'A') || (right_output == 'E')) {
+        if (correct_pyramid == 0) digitalWrite(rside_output_pin, HIGH);
+      }
+      if ((right_output == 'I') || (right_output == 'O')) {
+        if (correct_pyramid == 1) digitalWrite(rside_output_pin, HIGH);
+      }
+    }
+  }
+
+  if (sensor_index == 2) {
+    if (middle_IR.available()) {
+      Serial.print("Middle sensor available. Output = ");
+      middle_output = middle_IR.read();
+      Serial.write(middle_output);
+      Serial.println();
+      if ((middle_output == 'A') || (middle_output == 'E')) {
+        if (correct_pyramid == 0) {
+          digitalWrite(lside_output_pin, HIGH);
+          digitalWrite(rside_output_pin, HIGH);
+        }
+      }
+      if ((middle_output == 'I') || (middle_output == 'O')) {
+        if (correct_pyramid == 1) {
+          digitalWrite(lside_output_pin, HIGH);
+          digitalWrite(rside_output_pin, HIGH);
+        }
+      }
+    }
+  }
+
+  if (millis() - current_time > 80) {
+    if (++sensor_index == 3) {
+      sensor_index = 0;
+    }
+    lside_IR.end();
+    rside_IR.end();
+    middle_IR.end();
+    digitalWrite(lside_output_pin, LOW);
+    digitalWrite(middle_output_pin, LOW);
+    digitalWrite(rside_output_pin, LOW);
+    Serial.end();
+    IR_setup();
+  }
+}
 // set mode indicator LED state
 void Indicator()
 {
